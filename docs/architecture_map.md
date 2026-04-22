@@ -278,8 +278,9 @@ class WorkoutTransition(Protocol):
 class RestTransition(Protocol):
     """p(Z_t | Z_{t-1}). Edge Z_{t-1} -> Z_t on rest days.
 
-    Contract: valid only for consecutive-rest-day counts in [1, 10].
-    Beyond the bound, callers must treat Z as undefined (A5).
+    Contract: valid only for consecutive-rest-day counts in
+    [1, max_consecutive_rest_days]. Beyond the bound, callers must
+    treat Z as undefined (A5).
     """
     d_Z: int
     max_consecutive_rest_days: int
