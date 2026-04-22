@@ -34,6 +34,7 @@ python -c "import statepace; print(len(statepace.__all__), 'exports')"
 | `docs/data_contract.md` | Before touching I/O — expected input schemas |
 | `docs/conventions.md` | For cross-cutting conventions (warm-up, bounds, deconfounding template) |
 | `docs/decisions/` | Before revisiting a prior modeling decision — check if an ADR already settled it |
+| `docs/plans/` | For the current state of in-flight sequencing work — completed milestones, active milestone, open decisions, recent audits |
 | `README.md` | For layout + setup |
 
 ---
