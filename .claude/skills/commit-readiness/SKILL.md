@@ -1,6 +1,6 @@
 ---
 name: commit-readiness
-description: Pre-commit audit aligned with CLAUDE.md commit discipline. Checks for runtime test, scope creep, unsolicited files, dead parameters, public-API drift, and forbidden language (pass/fail labels). Run before every commit.
+description: Pre-commit audit aligned with CLAUDE.md commit discipline. Checks for runtime test, scope creep, unsolicited files, dead parameters, public-API drift, forbidden language (pass/fail labels), canonical-source contradictions, governance-doc sync, and vocabulary discipline in ADRs/plans. Run before every commit.
 ---
 
 # Commit Readiness
@@ -18,10 +18,13 @@ Enforce CLAUDE.md standing rules on the staged diff.
 7. **IDE files.** `.idea/`, `.vscode/`, `*.swp`, `.DS_Store` in the diff? Remove.
 8. **Language hygiene.** Any "pass", "fail", "success" labels on results in new docs, comments, or log lines? Replace with numbers and deltas.
 9. **Commit message.** Describes what and why, not how. No scope beyond the diff.
+10. **Canonical-source rule (advisory).** Scan added lines in any `docs/*.md` or `docs/**/*.md` for numeric literals near known hyperparameter names: `warmup_days`, `max_consecutive_rest_days`, `train_days`, `test_days`, `d_Z`, `d_P`, `d_X`, `d_E`, `n_athletes`, `n_days`. These should appear as parameter names in specs, not as concrete values. Warn with file:line; do not block.
+11. **Governance-doc sync (advisory).** If the diff touches files in a governed directory, check that its governance doc is either updated in the same commit or already correctly describes the new state. Mapping: `statepace/**` → `docs/architecture_map.md`; `docs/**` → `docs/README.md`; `docs/decisions/**` → `modeling-decision-record` skill template (no in-repo governance file); `docs/plans/**` → `docs/plans/README.md`; `tests/**` → `tests/README.md`. Warn if the governance doc seems stale relative to the added/removed files.
+12. **Vocabulary discipline (advisory).** If the diff touches `docs/decisions/**` or `docs/plans/**`, scan added lines for forbidden architecture-leak symbols: standalone `μ`, `α`, `β`, `σ_X`, `σ_f`, `σ_g`, `Z*` (asterisk form), `α·`, `β·`, or any phrasing that commits the model to a parametric family (linear, Gaussian, additive, mean-reversion, etc.) without an explicit decision record introducing those terms. Warn with file:line.
 
 ## Output
 
 - **Diff summary:** files and hunks.
 - **Findings:** numbered, each pointing to file:line.
-- **Blocking vs warning:** classify each finding.
-- **Verdict:** ready / blocked — enumerate what must change.
+- **Blocking vs warning:** classify each finding. Checks 1–9 may block; checks 10–12 are advisory only.
+- **Verdict:** ready / blocked — enumerate what must change. Advisory findings are listed but do not gate the commit.
