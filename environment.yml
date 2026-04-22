@@ -1,0 +1,17 @@
+name: run_modeling
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy
+  - pandas
+  - scipy
+  - scikit-learn
+  - statsmodels
+  - tqdm
+  - matplotlib
+  - jupyter
+  - pip
+  - pip:
+    - -e .

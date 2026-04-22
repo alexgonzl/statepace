@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "run_modeling"
+version = "0.1.0"
+description = "Per-athlete cardiorespiratory state estimation from longitudinal run data."
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "pandas",
+    "scipy",
+    "scikit-learn",
+    "statsmodels",
+]
+
+[tool.setuptools.packages.find]
+include = ["run_modeling*"]
