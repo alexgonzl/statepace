@@ -95,6 +95,7 @@ Transform tasks into verifiable goals:
 - Commit discipline: never commit without a runtime test or explicit acknowledgement of risk.
 - No dead parameters — remove unused/obsolete when explicitly refactoring; otherwise surface, don't delete.
 - Report numbers and deltas; don't label pass/fail/success.
+- Every directory holding multiple files has a governance README (or equivalent — e.g., `statepace/` is governed by `docs/architecture_map.md`). A new directory, or a new file category inside an existing one, requires updating (or creating) that governance doc before the file lands.
 
 ---
 
