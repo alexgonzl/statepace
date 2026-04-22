@@ -1,6 +1,6 @@
 # Conventions
 
-Cross-cutting conventions for `run_modeling`. The DAG itself is in
+Cross-cutting conventions for `statepace`. The DAG itself is in
 `docs/theoretical_framework.md`; the data schema is in `docs/data_contract.md`.
 
 ## Time and aggregation

@@ -1,6 +1,6 @@
 # Architecture Map
 
-Module skeleton for `run_modeling`, mapped to the DAG in
+Module skeleton for `statepace`, mapped to the DAG in
 `docs/theoretical_framework.md`. Interfaces are typed Python signatures
 only; no bodies, no estimator choices. Read alongside
 `docs/theoretical_framework.md`, `docs/data_contract.md`,
@@ -35,7 +35,7 @@ given a module this round — see §5 below.
 ## 2. Skeleton
 
 ```
-run_modeling/
+statepace/
   channels.py
   observation.py
   transitions.py
@@ -182,7 +182,7 @@ every family to enumerate a type per query.
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol, Literal
-from run_modeling.channels import P, X, E, Z, Array
+from statepace.channels import P, X, E, Z, Array
 
 Mode = Literal["fixed", "projected", "marginalized"]
 
@@ -265,7 +265,7 @@ up to 10 consecutive rest days (§A5, conventions §bounds).
 ```python
 from __future__ import annotations
 from typing import Protocol
-from run_modeling.channels import X, Z, Array
+from statepace.channels import X, Z, Array
 
 
 class WorkoutTransition(Protocol):
@@ -307,9 +307,9 @@ Kalman, GP, ML). Estimator choice is deferred to later rounds.
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol, Literal
-from run_modeling.channels import Channels, Z, Array
-from run_modeling.observation import ObservationModel
-from run_modeling.transitions import WorkoutTransition, RestTransition
+from statepace.channels import Channels, Z, Array
+from statepace.observation import ObservationModel
+from statepace.transitions import WorkoutTransition, RestTransition
 
 InferMode = Literal["filter", "smooth"]
 
@@ -372,8 +372,8 @@ factor in the prediction decomposition.
 
 ```python
 from __future__ import annotations
-from run_modeling.channels import Z
-from run_modeling.transitions import WorkoutTransition, RestTransition
+from statepace.channels import Z
+from statepace.transitions import WorkoutTransition, RestTransition
 
 
 def forward_state(
@@ -385,7 +385,7 @@ def forward_state(
 
 
 from dataclasses import dataclass
-from run_modeling.channels import X as X_channel, Array
+from statepace.channels import X as X_channel, Array
 
 @dataclass(frozen=True)
 class ForwardSchedule:
@@ -420,11 +420,11 @@ p(X_{t+τ} | history) = ∫ p(X_{t+τ} | Z_{t+τ-1}, P_{t+τ}, E_{t+τ})
 
 ```python
 from __future__ import annotations
-from run_modeling.channels import Channels, P, E, X, Array
-from run_modeling.filter import StateEstimator
-from run_modeling.forward import ForwardSchedule
-from run_modeling.observation import ObservationModel, ConditioningSpec
-from run_modeling.transitions import WorkoutTransition, RestTransition
+from statepace.channels import Channels, P, E, X, Array
+from statepace.filter import StateEstimator
+from statepace.forward import ForwardSchedule
+from statepace.observation import ObservationModel, ConditioningSpec
+from statepace.transitions import WorkoutTransition, RestTransition
 
 
 def predict_session(
@@ -457,10 +457,10 @@ inverse at the queried conditions. No new modeling.
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
-from run_modeling.channels import Channels, Z, X, Array
-from run_modeling.filter import StateEstimator
-from run_modeling.observation import ObservationModel
-from run_modeling.transitions import WorkoutTransition, RestTransition
+from statepace.channels import Channels, Z, X, Array
+from statepace.filter import StateEstimator
+from statepace.observation import ObservationModel
+from statepace.transitions import WorkoutTransition, RestTransition
 
 
 @dataclass(frozen=True)
@@ -509,8 +509,8 @@ convention only.** Not an edge, not a module the model sees.
 ```python
 from __future__ import annotations
 from dataclasses import dataclass
-from run_modeling.channels import P, E, Z, Array
-from run_modeling.observation import ObservationModel, ConditioningSpec
+from statepace.channels import P, E, Z, Array
+from statepace.observation import ObservationModel, ConditioningSpec
 
 
 @dataclass(frozen=True)
@@ -548,8 +548,8 @@ user-facing eval scripts.
 
 ```python
 from __future__ import annotations
-from run_modeling.channels import X, Array
-from run_modeling.evaluation.harness import EvalResult
+from statepace.channels import X, Array
+from statepace.evaluation.harness import EvalResult
 
 
 def one_step_prediction_error(result: EvalResult, X_true: X) -> Array: ...
@@ -574,7 +574,7 @@ channels.
    takes/returns the typed channel dataclasses (`P`, `X`, `E`, `Z`,
    `Channels`). No module below `channels.py` touches `df[...]`.
 2. **Evaluation direction.** `evaluation/` may import from
-   `run_modeling/`; `run_modeling/` must never import from
+   `statepace/`; `statepace/` must never import from
    `evaluation/`. Deconfounding, metrics, splits, harness are strictly
    downstream.
 3. **One observation interface.** `ObservationModel` is a single
@@ -582,7 +582,7 @@ channels.
    via branching in callers. `filter.py`, `forward.py`, `predict.py`
    treat `Z` opaquely via the Protocol.
 4. **Deconfounding is scoring, not modeling.** `project_to_reference`
-   lives in `evaluation/deconfounding.py`. No module in `run_modeling/`
+   lives in `evaluation/deconfounding.py`. No module in `statepace/`
    (observation, filter, transitions, forward, predict) may import it
    or depend on reference templates.
 5. **Transitions own the 10-day bound.** `RestTransition.max_consecutive_rest_days`

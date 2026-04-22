@@ -11,7 +11,7 @@ Enforce CLAUDE.md standing rules on the staged diff.
 
 1. **Runtime test.** Has a runtime test against real fixture data been run since the last change? If not, block unless the user explicitly acknowledges the risk.
 2. **Scope.** Is every hunk in the diff part of the requested change? Flag unsolicited edits: unrelated refactors, formatting-only changes, new files not asked for.
-3. **Public API.** Did any symbol exported by `run_modeling/__init__.py` change signature or disappear? If yes, require explicit confirmation.
+3. **Public API.** Did any symbol exported by `statepace/__init__.py` change signature or disappear? If yes, require explicit confirmation.
 4. **Dead parameters.** Any function parameter added but not used, or kept after refactor but no longer reachable? Remove.
 5. **Renormalization.** Any implicit renormalization of a signal or score (scaling, centering, reweighting) that wasn't asked for? Block.
 6. **Mocking.** Any test that mocks internals instead of using real fixture data? Block.

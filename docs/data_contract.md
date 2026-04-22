@@ -1,6 +1,6 @@
 # Data Contract
 
-Expected input schemas for `run_modeling`. Only the columns listed here are
+Expected input schemas for `statepace`. Only the columns listed here are
 consumed by the package; upstream dataframes may carry additional columns
 that are ignored.
 

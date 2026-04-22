@@ -1,4 +1,4 @@
-# CLAUDE.md — run_modeling
+# CLAUDE.md — statepace
 
 Research codebase. Scientific correctness > engineering polish.
 
@@ -67,6 +67,6 @@ The cardiac cost work is the most recent anchor; see the LMM cascade and figures
 
 ```bash
 conda env create -f environment.yml
-conda activate run_modeling
-python -c "import run_modeling; print(len(run_modeling.__all__), 'exports')"
+conda activate statepace
+python -c "import statepace; print(len(statepace.__all__), 'exports')"
 ```

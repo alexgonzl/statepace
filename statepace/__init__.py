@@ -1,4 +1,4 @@
-"""run_modeling — per-athlete cardiorespiratory state estimation.
+"""statepace — per-athlete cardiorespiratory state estimation.
 
 Organized around the DAG in ``docs/theoretical_framework.md``:
 

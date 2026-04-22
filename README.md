@@ -1,4 +1,4 @@
-# run_modeling
+# statepace
 
 Per-athlete cardiorespiratory state estimation from longitudinal run data.
 
@@ -14,7 +14,7 @@ See `docs/theoretical_framework.md` for the framework and assumption ledger.
 
 ```bash
 conda env create -f environment.yml
-conda activate run_modeling
+conda activate statepace
 ```
 
 The env includes `pip install -e .` so the package is importable in editable mode.
@@ -22,7 +22,7 @@ The env includes `pip install -e .` so the package is importable in editable mod
 Quick check:
 
 ```bash
-python -c "import run_modeling; print(run_modeling.__all__)"
+python -c "import statepace; print(statepace.__all__)"
 ```
 
 ## Layout
@@ -31,7 +31,7 @@ The package is being built against the DAG. Module skeleton per
 `docs/architecture_map.md`:
 
 ```
-run_modeling/
+statepace/
 ├── channels.py        # Z, P, X, E definitions; raw frame → typed channels
 ├── observation.py     # p(X | Z, P, E) forward + inverse
 ├── transitions.py     # f (workout), g (rest, 10-day bound)

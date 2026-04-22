@@ -2,15 +2,15 @@
 
 Run: pytest tests/test_smoke.py
 """
-import run_modeling
+import statepace
 
 
 def test_package_imports():
-    assert len(run_modeling.__all__) > 0
+    assert len(statepace.__all__) > 0
 
 
 def test_constants_present():
-    from run_modeling import (
+    from statepace import (
         WORLD_RECORD_SPEEDS,
         RIEGEL_DISTANCES_M,
         DECONFOUNDING_NORMS,
