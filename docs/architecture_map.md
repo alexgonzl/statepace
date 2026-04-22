@@ -307,7 +307,7 @@ Kalman, GP, ML). Estimator choice is deferred to later rounds.
 ```python
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Protocol, Literal
+from typing import Protocol, Literal, Mapping
 from statepace.channels import Channels, Z, Array
 from statepace.observation import ObservationModel
 from statepace.transitions import WorkoutTransition, RestTransition
@@ -334,21 +334,37 @@ class Prior:
 
 
 class StateEstimator(Protocol):
-    """p(Z_t | history) under a given observation model and transitions.
+    """p(Z_t | history) under shared parameters and a given observation/transition family.
 
-    Concrete implementations decide whether they use observation.log_prob,
+    `fit` learns shared parameters across a cohort of athletes (ADR 0001) and
+    returns a *parametric* fitted estimator — it does not retain per-athlete data.
+    `infer` computes the Z trajectory for any athlete (seen or unseen at fit time)
+    by re-running inference against their Channels under the frozen parameters.
+    This makes training-cohort and validation-cohort inference structurally identical
+    (ADR 0002). Concrete implementations decide whether they use observation.log_prob,
     transition.log_prob, both, or approximations thereof.
+
+    `d_Z` must equal the observation model's and transitions' `d_Z` at fit time;
+    mismatch is a fit-time error.
     """
+
+    d_Z: int
+
     def fit(
         self,
-        channels: Channels,
+        cohort: Mapping[str, Channels],
         observation: ObservationModel,
         workout_transition: WorkoutTransition,
         rest_transition: RestTransition,
-        prior: Prior,
+        prior: Prior | Mapping[str, Prior],
     ) -> "StateEstimator": ...
 
-    def infer(self, mode: InferMode = "filter") -> Z: ...
+    def infer(
+        self,
+        channels: Channels,
+        mode: InferMode = "filter",
+        prior: Prior | None = None,
+    ) -> Z: ...
 ```
 
 **In-scope**: filtering `p(Z_t | P_{1:t}, X_{1:t}, E_{1:t})`; smoothing
@@ -457,25 +473,31 @@ inverse at the queried conditions. No new modeling.
 ```python
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Literal, Mapping
 from statepace.channels import Channels, Z, X, Array
 from statepace.filter import StateEstimator
 from statepace.observation import ObservationModel
 from statepace.transitions import WorkoutTransition, RestTransition
 
+Cohort = Literal["train", "test", "validation"]
+
 
 @dataclass(frozen=True)
 class EvalSplit:
-    """Per-subject fit/score split. Respects warm-up mask (conventions)."""
+    """Per-subject fit/score split with cohort label (ADR 0001/0002). Respects warm-up mask (conventions)."""
     subject_id: str
-    fit_idx: Array    # int, indices into Channels.dates
-    score_idx: Array  # int, indices into Channels.dates
+    cohort: Cohort
+    fit_idx: Array    # int, indices into this athlete's Channels.dates
+    score_idx: Array  # int, indices into this athlete's Channels.dates
 
 
-def make_splits(channels: Channels, warmup_days: int) -> Iterable[EvalSplit]: ...
+def make_splits(
+    cohort: Mapping[str, Channels],
+    warmup_days: int,
+) -> Iterable[EvalSplit]: ...
 
 def run_evaluation(
-    channels: Channels,
+    cohort: Mapping[str, Channels],
     splits: Iterable[EvalSplit],
     estimator: StateEstimator,
     observation: ObservationModel,
@@ -486,9 +508,10 @@ def run_evaluation(
 
 @dataclass(frozen=True)
 class EvalResult:
-    Z_hat: Z          # estimator output on score_idx
-    X_pred: X         # one-step observation predictions on score_idx
-    rest_bound_violations: Array  # bool, shape (T,), flags A5 overruns
+    Z_hat: Mapping[str, Z]                  # keyed by subject_id; estimator output on score_idx
+    X_pred: Mapping[str, X]                 # keyed by subject_id; one-step observation predictions on score_idx
+    cohort: Mapping[str, Cohort]            # subject_id -> cohort label
+    rest_bound_violations: Mapping[str, Array]  # keyed by subject_id; bool, shape (T,), flags A5 overruns
 ```
 
 **In-scope**: fixture wiring (synthetic + real); warm-up enforcement;
@@ -610,6 +633,12 @@ channels.
 11. **Prior is explicit.** `StateEstimator.fit` takes a `Prior`
     dataclass; A8's diffuse claim is carried by `prior.diffuse=True` and
     may be asserted by the harness before fit.
+12. **Estimator pooling is invisible to observation and transitions.**
+    `StateEstimator.fit` takes a `Mapping[str, Channels]` (ADR 0001/0002),
+    but `ObservationModel`, `WorkoutTransition`, and `RestTransition`
+    continue to see per-athlete arrays only — estimators stack or loop
+    internally. Pooling belongs to the estimator, not to the model
+    components it composes.
 
 ---
 

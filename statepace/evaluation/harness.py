@@ -1,25 +1,31 @@
 """Evaluation harness: split wiring, warm-up enforcement, and estimator invocation (architecture_map §3.7)."""
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Literal, Mapping
 from statepace.channels import Channels, Z, X, Array
 from statepace.filter import StateEstimator
 from statepace.observation import ObservationModel
 from statepace.transitions import WorkoutTransition, RestTransition
 
+Cohort = Literal["train", "test", "validation"]
+
 
 @dataclass(frozen=True)
 class EvalSplit:
-    """Per-subject fit/score split. Respects warm-up mask (conventions)."""
+    """Per-subject fit/score split with cohort label (ADR 0001/0002). Respects warm-up mask (conventions)."""
     subject_id: str
-    fit_idx: Array    # int, indices into Channels.dates
-    score_idx: Array  # int, indices into Channels.dates
+    cohort: Cohort
+    fit_idx: Array    # int, indices into this athlete's Channels.dates
+    score_idx: Array  # int, indices into this athlete's Channels.dates
 
 
-def make_splits(channels: Channels, warmup_days: int) -> Iterable[EvalSplit]: ...
+def make_splits(
+    cohort: Mapping[str, Channels],
+    warmup_days: int,
+) -> Iterable[EvalSplit]: ...
 
 def run_evaluation(
-    channels: Channels,
+    cohort: Mapping[str, Channels],
     splits: Iterable[EvalSplit],
     estimator: StateEstimator,
     observation: ObservationModel,
@@ -30,6 +36,7 @@ def run_evaluation(
 
 @dataclass(frozen=True)
 class EvalResult:
-    Z_hat: Z          # estimator output on score_idx
-    X_pred: X         # one-step observation predictions on score_idx
-    rest_bound_violations: Array  # bool, shape (T,), flags A5 overruns
+    Z_hat: Mapping[str, Z]                      # keyed by subject_id; estimator output on score_idx
+    X_pred: Mapping[str, X]                     # keyed by subject_id; one-step observation predictions on score_idx
+    cohort: Mapping[str, Cohort]                # subject_id -> cohort label
+    rest_bound_violations: Mapping[str, Array]  # keyed by subject_id; bool, shape (T,), flags A5 overruns

@@ -1,7 +1,7 @@
 """State inference protocol and Prior container for p(Z_t | history) (architecture_map §3.4)."""
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Protocol, Literal
+from typing import Protocol, Literal, Mapping
 from statepace.channels import Channels, Z, Array
 from statepace.observation import ObservationModel
 from statepace.transitions import WorkoutTransition, RestTransition
@@ -28,18 +28,34 @@ class Prior:
 
 
 class StateEstimator(Protocol):
-    """p(Z_t | history) under a given observation model and transitions.
+    """p(Z_t | history) under shared parameters and a given observation/transition family.
 
-    Concrete implementations decide whether they use observation.log_prob,
+    `fit` learns shared parameters across a cohort of athletes (ADR 0001) and
+    returns a *parametric* fitted estimator — it does not retain per-athlete data.
+    `infer` computes the Z trajectory for any athlete (seen or unseen at fit time)
+    by re-running inference against their Channels under the frozen parameters.
+    This makes training-cohort and validation-cohort inference structurally identical
+    (ADR 0002). Concrete implementations decide whether they use observation.log_prob,
     transition.log_prob, both, or approximations thereof.
+
+    `d_Z` must equal the observation model's and transitions' `d_Z` at fit time;
+    mismatch is a fit-time error.
     """
+
+    d_Z: int
+
     def fit(
         self,
-        channels: Channels,
+        cohort: Mapping[str, Channels],
         observation: ObservationModel,
         workout_transition: WorkoutTransition,
         rest_transition: RestTransition,
-        prior: Prior,
+        prior: Prior | Mapping[str, Prior],
     ) -> "StateEstimator": ...
 
-    def infer(self, mode: InferMode = "filter") -> Z: ...
+    def infer(
+        self,
+        channels: Channels,
+        mode: InferMode = "filter",
+        prior: Prior | None = None,
+    ) -> Z: ...
