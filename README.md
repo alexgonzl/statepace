@@ -5,7 +5,7 @@ Per-athlete cardiorespiratory state estimation from longitudinal run data.
 Organized around the DAG in `docs/theoretical_framework.md`:
 
 - Observation model `p(X | Z, P, E)`
-- State transitions `f` (workout), `g` (rest, 10-day bound)
+- State transitions `f` (workout), `g` (rest, bounded)
 - Prediction = state forward + observation at reference conditions
 
 See `docs/theoretical_framework.md` for the framework and assumption ledger.
@@ -34,9 +34,9 @@ The package is being built against the DAG. Module skeleton per
 statepace/
 ├── channels.py        # Z, P, X, E definitions; raw frame → typed channels
 ├── observation.py     # p(X | Z, P, E) forward + inverse
-├── transitions.py     # f (workout), g (rest, 10-day bound)
+├── transitions.py     # f (workout), g (rest, bounded)
 ├── filter.py          # state estimators; single interface over Z
-├── forward.py         # Z_d → Z_{d+τ} via g
+├── forward.py         # Z_d → Z_{d+τ} via f, g
 ├── predict.py         # filter → forward → invert
 └── evaluation/
     ├── harness.py

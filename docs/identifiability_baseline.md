@@ -26,10 +26,10 @@ Framework references: `docs/theoretical_framework.md` §§5–7; §A4, §A5,
 - **Workout transition** `f`: `Z_t = Z_{t-1} + α·(X_t − x̄(P_t, E_t)) + ε_f`,
   `ε_f ~ N(0, σ_f²)`. Scalar training-stimulus gain `α`.
 - **Rest transition** `g`: `Z_t = Z_{t-1} + β·(Z* − Z_{t-1}) + ε_g` for
-  `n_rest ∈ [1, 10]`. Scalar mean-reversion rate `β`, asymptote `Z*`,
+  `n_rest` within the rest bound (`max_consecutive_rest_days`). Scalar mean-reversion rate `β`, asymptote `Z*`,
   `ε_g ~ N(0, σ_g²)`.
 - **Prior** (`Prior` dataclass, §A8): `Z_0 ~ N(m_0, v_0)` with
-  `v_0 → ∞`, `diffuse=True`. 1-year warm-up masked at harness.
+  `v_0 → ∞`, `diffuse=True`. Warm-up masked at harness.
 
 This is the smallest model the architecture's Protocols can carry.
 
@@ -43,7 +43,7 @@ This is the smallest model the architecture's Protocols can carry.
 | `σ_X²` | observation noise | Residual variance after `μ(·)` fit on workout days | Identified |
 | `α` (workout gain in `f`) | `X → Z` effect | Longitudinal change in `Z_{t-1}` regressed on prior `(X − x̄)`; requires temporal variation in `X_t` (§4d) | **Entangled with `μ`'s `Z`-slope** — see §3 |
 | `σ_f²` | workout transition noise | Residual `Z`-increment variance on workout days | Identified conditional on `α` identified |
-| `β`, `Z*` (rest transition) | recovery rate + asymptote | Rest-only sub-sample (`is_rest=True`, `n_rest ≤ 10`), via `Z`-change across pure rest runs | Identified on rest sub-sample; `Z*` is weakly identified per athlete (see §3) |
+| `β`, `Z*` (rest transition) | recovery rate + asymptote | Rest-only sub-sample (`is_rest=True`, `n_rest` within bound), via `Z`-change across pure rest runs | Identified on rest sub-sample; `Z*` is weakly identified per athlete (see §3) |
 | `σ_g²` | rest transition noise | Residual `Z`-increment on rest days | Identified conditional on `β`, `Z*` |
 | `m_0`, `v_0` (prior) | `Z_0` initial | Not identified from data (A8 diffuse) | **Assumed**, not identified |
 | Scale/sign of `Z` | gauge | Nothing in the data | **Assumed** (convention: `α > 0`, and either `Var(Z)=1` or a fixed coefficient in `μ`) |
@@ -151,13 +151,13 @@ What you can estimate from workout days alone in the minimal model:
    un-identify `α`. **Fix**: diagnostic on `Var(X_t)` within-athlete;
    defer to the estimator to flag.
 6. **Rest sub-sample may be small.** Per athlete, `g`'s `β, Z*` are
-   identified on pure-rest-day `Z`-change residuals within 10-day
-   windows. If the athlete rarely rests, or rests only in gaps >10
-   days (A5 out-of-scope), `g` is weakly identified and leaks into
+   identified on pure-rest-day `Z`-change residuals within the rest
+   bound. If the athlete rarely rests, or rests only in gaps beyond the
+   bound (A5 out-of-scope), `g` is weakly identified and leaks into
    `f`'s estimation via `Z_{t-1}` passed across rest days.
-7. **Warm-up leakage.** Conventions require a 1-year warm-up mask at
-   the harness (architecture §3.7, `warmup_days=365`). The estimator
-   itself is unaware. **Risk**: early-trajectory `Z_{0:365}` carries
+7. **Warm-up leakage.** Conventions require a warm-up mask at
+   the harness (architecture §3.7, `warmup_days`). The estimator
+   itself is unaware. **Risk**: early-trajectory `Z` carries
    diffuse-prior residue; if a caller bypasses `EvalSplit`, prior bias
    leaks. **Fix**: harness-level enforcement is the existing defence;
    callers must not bypass.
@@ -166,7 +166,7 @@ What you can estimate from workout days alone in the minimal model:
    mechanism. **Consequence**: `f`, `g`, `μ` estimates are a weighted
    average across regimes; predictions at regime boundaries are biased.
    **Fix**: out of scope for the baseline; flag in fitting.
-9. **Re-entry after `n_rest > 10`.** The architecture (§5 item 2)
+9. **Re-entry after `n_rest` past the bound.** The architecture (§5 item 2)
    defers the re-entry-policy choice. The minimal model as written has
    no mechanism; `Z` is undefined post-gap. Practical identification
    consequence: post-gap `Z` initialization is another unidentified
@@ -193,7 +193,7 @@ All five are necessary; none is sufficient alone.
    gauge + dual-role restrictions, because flexible `μ` absorbs
    flexible `f`.
 4. **Drop `m_0, v_0` from the estimated set.** `Prior.diffuse=True`
-   (explicitly, via the `Prior` dataclass) and 1-year warm-up masking
+   (explicitly, via the `Prior` dataclass) and warm-up masking
    at the harness (conventions §warm-up). No population prior
    estimated in the minimal (per-athlete) model.
 5. **Restrict scope to filtering and one-step prediction at realized
@@ -209,8 +209,8 @@ All five are necessary; none is sufficient alone.
 - **Regime-shift breakpoints.** A10 stationarity assumed.
 - **Re-entry degradation.** Architecture defers.
 
-These are scoped out, not failures. Scoring gates at 1-year warm-up
-and to `n_rest ≤ 10` windows keep them off the score.
+These are scoped out, not failures. Scoring gates at the warm-up mask
+and to within-bound rest windows keep them off the score.
 
 ## 7. Verdict on the minimal model as an identifiability *baseline*
 

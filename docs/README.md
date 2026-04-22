@@ -10,6 +10,10 @@ docs/
 ├── conventions.md                     ← prose: cross-cutting conventions
 ├── data_contract.md                   ← prose: expected input schemas
 ├── dag_buildup.md                     ← prose: step-by-step DAG narration
+├── architecture_map.md                ← prose: planned module layout and contracts
+├── channel_assignment.md              ← prose: P/X/E classification of raw columns
+├── identifiability_baseline.md        ← prose: minimal-model identifiability audit
+├── decisions/                         ← ADRs via `modeling-decision-record` skill (created on first use)
 ├── theoretical_framework_dag.{png,svg}   ← canonical framework figure (top-level)
 ├── scripts/                           ← render sources (executable .py)
 │   ├── make_dag.py                       → writes ../theoretical_framework_dag.{png,svg}

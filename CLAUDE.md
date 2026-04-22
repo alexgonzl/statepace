@@ -9,7 +9,7 @@ Research codebase. Scientific correctness > engineering polish.
 Per-athlete cardiorespiratory state estimation from longitudinal run data:
 
 - **Observation model** `p(X | Z, P, E)` → `observation.py`
-- **State transitions** `f` (workout), `g` (rest, bounded 10d) → `transitions.py`; inference over Z in `filter.py`
+- **State transitions** `f` (workout), `g` (rest, bounded) → `transitions.py`; inference over Z in `filter.py`
 - **Prediction** = filter → forward → observation at reference conditions → `predict.py`
 
 Current state: scaffold only — package exports constants from `_constants.py`. Planned module layout lives in `docs/architecture_map.md`. Legacy names (`cardiac_cost.py`, `riegel.py`, `state_estimation.py`, etc.) are reference-only; do not import from new modules.

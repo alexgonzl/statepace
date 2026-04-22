@@ -36,11 +36,11 @@ On rest days, `P_t` and `X_t` are absent and the day-step collapses to `Z_{t-1} 
 
 **Two transition regimes (A5):**
 - Workout day: `p(Z_t | Z_{t-1}, X_t) = f(Z_{t-1}, X_t)` + noise.
-- Rest day: `p(Z_t | Z_{t-1}) = g(Z_{t-1})` + noise, valid for consecutive rest periods up to 10 days.
-- Past 10 consecutive rest days: `Z_t` is undefined; the athlete exits the state-tracked regime (inactivity).
-- Re-entry after a gap >10 days uses the last valid `Z_t` before the gap as the starting point, with degraded confidence relative to a freshly observed state.
+- Rest day: `p(Z_t | Z_{t-1}) = g(Z_{t-1})` + noise, valid within a bounded window of consecutive rest days.
+- Past the bound: `Z_t` is undefined; the athlete exits the state-tracked regime (inactivity).
+- Re-entry after a gap beyond the bound uses the last valid `Z_t` before the gap as the starting point, with degraded confidence relative to a freshly observed state.
 
-`f` and `g` are distinct functional forms with distinct parameters. `g` carries the autonomous dynamics on rest days: recovery, short-term decay, circadian/seasonal drift. The 10-day bound scopes `g` to the range where rest-day data supports estimation and where physiology is still in the recovery regime rather than the detraining regime.
+`f` and `g` are distinct functional forms with distinct parameters. `g` carries the autonomous dynamics on rest days: recovery, short-term decay, circadian/seasonal drift. The rest-bound scopes `g` to the range where rest-day data supports estimation and where physiology is still in the recovery regime rather than the detraining regime; the bound itself is a hyperparameter.
 
 ---
 
@@ -65,7 +65,7 @@ Four conditional distributions carry the modeling content:
 - **Selection model**: `p(P_t | Z_{t-1})`. How state shapes session choice.
 - **Observation model**: `p(X_t | Z_{t-1}, P_t, E_t)`. Drives the prediction head.
 - **Workout-day transition**: `p(Z_t | Z_{t-1}, X_t)` (function `f`).
-- **Rest-day transition**: `p(Z_t | Z_{t-1})` (function `g`), valid for rest periods up to 10 days (A5).
+- **Rest-day transition**: `p(Z_t | Z_{t-1})` (function `g`), valid within a bounded rest window (A5).
 
 The selection model `p(P_t | Z_{t-1})` is not strictly required to estimate `Z_t` from observed `(P_t, X_t, E_t)`. It is required for causal statements about fitness: `P_t` is a mediator of `Z_{t-1}`'s effect on `X_t`, and conditioning on `P_t` isolates the direct capacity effect from the indirect session-selection effect (§5).
 
@@ -120,7 +120,7 @@ Given observed `(P_{1:T}, X_{1:T}, E_{1:T})`, recover the latent trajectory `Z_{
 
 All three require the observation model, `f`, and `g`.
 
-**Prior on `Z_0` (A8)**: diffuse. A 6-month warm-up discards state estimates from the window where the prior still dominates.
+**Prior on `Z_0` (A8)**: diffuse. A warm-up window discards state estimates from the region where the prior still dominates; its length is a hyperparameter.
 
 **Joint identifiability**: `f`, `g`, and the observation model are not jointly identified at framework level. Identification relies on per-family restrictions: functional-form assumptions, pooling strategies, sub-sample structure (workout-only data constrains `f`, rest-only data constrains `g`; variation in `P_t` and `E_t` at matched `Z_{t-1}` identifies the observation model).
 
@@ -137,7 +137,7 @@ p(X_{t+τ} | P_{1:t+τ}, X_{1:t}, E_{1:t+τ})
 ```
 
 Two factors:
-- `p(Z_{t+τ-1} | P_{1:t}, X_{1:t}, E_{1:t})` — τ-step state predictive. State evolves via `f` on workout days and `g` on rest days (within the 10-day bound, A5).
+- `p(Z_{t+τ-1} | P_{1:t}, X_{1:t}, E_{1:t})` — τ-step state predictive. State evolves via `f` on workout days and `g` on rest days (within the rest bound, A5).
 - `p(X_{t+τ} | Z_{t+τ-1}, P_{t+τ}, E_{t+τ})` — observation model at the queried conditions.
 
 The DAG justifies the two-step decomposition: predict state forward, then project state through the observation model under known `P` and `E`. Deconfounding belongs on the observation model; `P_t` and acute `E_t` enter there. Chronic environmental adaptation and regime effects are already inside `Z`.
@@ -200,8 +200,8 @@ This section is accounting, not an additional assumption.
 ### A5. Two transition regimes, with bounded `g`
 - **Claim**: workout day and rest day have distinct transitions (`f`, `g`).
 - **`g` carries**: recovery, short-term decay, circadian/seasonal drift.
-- **Validity bound**: 10 consecutive rest days. Within the bound, `g` models recovery dynamics. Beyond, the athlete is in inactivity and `Z_t` is undefined.
-- **Rationale for 10 days**: detraining (VO2max decline, mitochondrial and capillary regression) becomes measurable around 10–14 days in trained athletes. Bounding at 10 days keeps `g` scoped to recovery.
+- **Validity bound**: a maximum number of consecutive rest days (hyperparameter). Within the bound, `g` models recovery dynamics. Beyond, the athlete is in inactivity and `Z_t` is undefined.
+- **Rationale for bounding**: detraining (VO2max decline, mitochondrial and capillary regression) becomes measurable in trained athletes; bounding `g` keeps it scoped to the recovery regime rather than the detraining regime.
 - **Re-entry after inactivity**: last valid `Z_t` is the starting point, with degraded confidence. Mechanism for representing degradation is per-family.
 - **Identifiability**: `g` estimable only on rest days, `f` only on workout days; joint identification relies on input signatures and per-family restrictions.
 - **Relied on in**: §2 two regimes and bound; §3 factorization; §7 prediction.
@@ -217,8 +217,8 @@ This section is accounting, not an additional assumption.
 - **Consequence**: two athletes with the same `Z_t`, `P_t`, and `E_t` produce the same distribution over `X_t`. Responder-type heterogeneity must be a `Z`-trajectory difference, not a function-parameter difference.
 - **Relied on in**: §1 primitives; §8 `Z` load.
 
-### A8. `Z_0` has a diffuse prior; 6-month warm-up
-- **Claim**: no informative prior on `Z_0`. First 6 months per athlete discarded as prior-contaminated.
+### A8. `Z_0` has a diffuse prior; warm-up discarded
+- **Claim**: no informative prior on `Z_0`. An initial per-athlete window is discarded as prior-contaminated; the length is a hyperparameter.
 - **Relied on in**: §6 inference.
 
 ### A9. No non-workout input node; health state is a projection
@@ -241,7 +241,7 @@ This section is accounting, not an additional assumption.
 | A2 | `E` coefficients and projection carry confounding; prediction degrades under covariate shift in the non-exogenous channel |
 | A3 | Chronic environmental or regime effects not representable within `Z`'s expressible trajectory |
 | A4 | Markov property fails → past observations carry info beyond `Z_t` |
-| A5 | Single-regime transition misfits rest-day dynamics; `g` forced past 10 days misfits detraining |
+| A5 | Single-regime transition misfits rest-day dynamics; `g` forced past the rest bound misfits detraining |
 | A6 | Within-day dynamics invisible; doubles mis-scored |
 | A7 | Responder-type differences appear as noise; pooling mis-specified |
 | A8 | Shorter warm-up leaks prior bias into scored predictions |
@@ -258,7 +258,7 @@ This section is accounting, not an additional assumption.
 | A2 | Which channels are treated as `E_t` | `E_t` exogenous; no `E_t → Z_t` edge |
 | A3 | Which `Z` dimensions absorb chronic adaptation; timescales of slow `Z` components | No direct `P_t → Z_t` or `E_t → Z_t` edge |
 | A4 | Dimension `d` of `Z`; per-family parameterization | Markov property (first-order); latent state exists |
-| A5 | Functional forms of `f` and `g`; whether they share parameters | Two distinct regimes; `g` bounded at 10 days; past-bound `Z_t` undefined; re-entry uses last valid `Z_t` with degraded confidence |
+| A5 | Functional forms of `f` and `g`; whether they share parameters; rest-bound length | Two distinct regimes; `g` bounded; past-bound `Z_t` undefined; re-entry uses last valid `Z_t` with degraded confidence |
 | A6 | Aggregation scheme for multi-workout days | Daily time index |
 | A7 | Pooling strategy across athletes; which `Z` dimensions are shared | Universal functional forms; between-athlete variation lives in `Z` |
 | A8 | Warm-up length; prior variance on `Z_0` | Diffuse prior; no informative population prior |
@@ -286,5 +286,5 @@ This section is accounting, not an additional assumption.
 2. **`X_t` is observation AND intervention** — the non-standard feature. `P_t` is an observed mediator that separates direct capacity from session-selection effects.
 3. **`E_t` is exogenous**; acute effects reach `Z_t` only via `X_t`; chronic adaptation is absorbed into `Z`.
 4. **`Z` is high-dimensional and multi-timescale** because it absorbs everything the framework does not model separately.
-5. **Two regimes, bounded `g`**: workout and rest transitions are distinct; rest transition is valid up to 10 days, past which `Z` is undefined.
+5. **Two regimes, bounded `g`**: workout and rest transitions are distinct; rest transition is valid within a bounded rest window, past which `Z` is undefined.
 6. **Prediction = state-forward-project + observation-at-reference-conditions**, where reference conditions span `(P, E)` at the queried session.

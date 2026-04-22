@@ -19,11 +19,11 @@ parameterization), not in the module graph.
 |---|---|---|
 | `channels.py` | Primitives §1 (`Z`, `P`, `X`, `E`) — the typing layer | Boundary between raw frames and everything else. No DAG edge lives here. |
 | `observation.py` | Edges `Z_{t-1} -> X_t`, `P_t -> X_t`, `E_t -> X_t` — i.e. `p(X_t \| Z_{t-1}, P_t, E_t)` (§3 observation model) | Carries forward (emission) + inverse (solve for the unobserved `X`-component given the rest). |
-| `transitions.py` | Edges `Z_{t-1} -> Z_t`, `X_t -> Z_t` — `f` (workout) and `g` (rest, bounded 10d per §A5) | Two regimes, distinct functional forms. |
+| `transitions.py` | Edges `Z_{t-1} -> Z_t`, `X_t -> Z_t` — `f` (workout) and `g` (rest, bounded per §A5 via `max_consecutive_rest_days`) | Two regimes, distinct functional forms. |
 | `filter.py` | Inference target §6 — `p(Z_t \| P_{1:t}, X_{1:t}, E_{1:t})` (filter) and `p(Z_t \| P_{1:T}, X_{1:T}, E_{1:T})` (smoother) | One interface; estimator family (EWM / Kalman / GP / ML) is an implementation choice. |
 | `forward.py` | τ-step predictive `p(Z_{t+τ-1} \| history)` using `f`, `g` from `transitions.py` (§7 first factor) | Closed-form only for degenerate `f`; general case is a sampler/propagator. |
 | `predict.py` | Composition of §7 — filter -> forward -> observation inverse at queried `(P_{t+τ}, E_{t+τ})` | Pure composition; owns no DAG edge of its own. |
-| `evaluation/harness.py` | No DAG node — runs fit/predict over fixtures, enforces warm-up (§A8, conventions §warm-up) and rest-day bound (§A5) | Eval-side only. |
+| `evaluation/harness.py` | No DAG node — runs fit/predict over fixtures, enforces warm-up mask (§A8, conventions §warm-up) and rest-day bound (§A5) | Eval-side only. |
 | `evaluation/deconfounding.py` | Scoring convention only — projection to reference `(P*, E*)` (conventions §deconfounding). NOT an edge; NOT in the model. | Operates on observation-model outputs, never on `Z`. |
 | `evaluation/metrics.py` | No DAG node — scoring functions | Eval-side only. |
 
@@ -260,7 +260,7 @@ eval-side — `evaluation/deconfounding.py` supplies the template when
 ### 3.3 `transitions.py`
 
 State dynamics. `f` on workout days, `g` on rest days; `g` is valid for
-up to 10 consecutive rest days (§A5, conventions §bounds).
+up to `max_consecutive_rest_days` consecutive rest days (§A5, conventions §bounds).
 
 ```python
 from __future__ import annotations
@@ -282,7 +282,7 @@ class RestTransition(Protocol):
     Beyond the bound, callers must treat Z as undefined (A5).
     """
     d_Z: int
-    max_consecutive_rest_days: int    # = 10 per A5
+    max_consecutive_rest_days: int
     def step(self, Z_prev: Z, n_rest_days: int) -> Z: ...
     def log_prob(self, Z_prev: Z, n_rest_days: int, Z_t: Z) -> Array: ...
 ```
@@ -291,7 +291,7 @@ class RestTransition(Protocol):
 distribution on the transition.
 
 **Out-of-scope**: observation model; filtering/smoothing; re-entry
-policy after >10-day gaps (caller's responsibility, surfaced via the
+policy after past-bound gaps (caller's responsibility, surfaced via the
 `max_consecutive_rest_days` contract).
 
 **Depends on**: `channels`, `numpy`.
@@ -352,7 +352,7 @@ class StateEstimator(Protocol):
 
 **In-scope**: filtering `p(Z_t | P_{1:t}, X_{1:t}, E_{1:t})`; smoothing
 `p(Z_t | P_{1:T}, X_{1:T}, E_{1:T})`; accepting an explicit `Prior` on
-`Z_0` (A8); warm-up enforcement (1 year, conventions §warm-up) via the
+`Z_0` (A8); warm-up enforcement (conventions §warm-up) via the
 harness — the estimator itself emits estimates for all `t` and leaves
 warm-up masking to callers.
 
@@ -393,7 +393,7 @@ class ForwardSchedule:
 
     For workout days, X_future provides the (hypothetical or planned) X
     driving f. For rest days, X_future rows are masked; consecutive rest
-    counts are derived internally and must respect A5's 10-day bound.
+    counts are derived internally and must respect A5's rest bound (`max_consecutive_rest_days`).
     """
     is_rest: Array          # bool, shape (tau,)
     X_future: X_channel     # shape (tau, d_X); NaN on rest days
@@ -465,13 +465,13 @@ from statepace.transitions import WorkoutTransition, RestTransition
 
 @dataclass(frozen=True)
 class EvalSplit:
-    """Per-subject fit/score split. Respects 1-year warm-up (conventions)."""
+    """Per-subject fit/score split. Respects warm-up mask (conventions)."""
     subject_id: str
     fit_idx: Array    # int, indices into Channels.dates
     score_idx: Array  # int, indices into Channels.dates
 
 
-def make_splits(channels: Channels, warmup_days: int = 365) -> Iterable[EvalSplit]: ...
+def make_splits(channels: Channels, warmup_days: int) -> Iterable[EvalSplit]: ...
 
 def run_evaluation(
     channels: Channels,
@@ -585,11 +585,11 @@ channels.
    lives in `evaluation/deconfounding.py`. No module in `statepace/`
    (observation, filter, transitions, forward, predict) may import it
    or depend on reference templates.
-5. **Transitions own the 10-day bound.** `RestTransition.max_consecutive_rest_days`
+5. **Transitions own the rest bound.** `RestTransition.max_consecutive_rest_days`
    is the single source of truth for A5. Callers (`forward.py`,
-   `filter.py`, eval harness) read it; they do not hardcode `10`.
+   `filter.py`, eval harness) read it; they do not hardcode a literal.
 6. **Warm-up is enforced at the edge.** Estimators emit `Z` over the
-   full history; warm-up masking (1 year, conventions) is applied by
+   full history; warm-up masking (conventions §warm-up) is applied by
    `evaluation/harness.py` and not baked into `filter.py`.
 7. **No backdoor references to old modules.** `cardiac_cost.py`,
    `riegel.py`, `state_estimation.py`, `gp_estimator.py`,
@@ -622,7 +622,7 @@ Flagged, not fixed.
    it. If/when needed, it would plausibly sit as `selection.py`
    alongside `observation.py` with a symmetric Protocol
    (`forward: Z -> P`, `log_prob: (Z, P) -> array`). Deferred.
-2. **Re-entry policy after >10-day rest gaps** (§A5). The contract
+2. **Re-entry policy after past-bound rest gaps** (§A5). The contract
    states `Z` is undefined past the bound and re-entry uses the last
    valid `Z_t` with degraded confidence, but *how* confidence
    degrades is a modeling choice with no obvious home. Candidates:

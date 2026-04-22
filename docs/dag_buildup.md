@@ -226,11 +226,12 @@ trajectory, not a closed system.
 
 **What this edge costs.**
 
-- `g` is *bounded*. The framework only claims `g` is valid for up to 10
-  consecutive rest days; past that, the athlete enters detraining and `Z_t`
+- `g` is *bounded*. The framework claims `g` is valid only within a
+  bounded rest window; past that, the athlete enters detraining and `Z_t`
   is undefined (re-entry uses the last valid `Z_t` with degraded
-  confidence). 10 days is calibrated to the onset of measurable detraining
-  in trained athletes (VO2max decline, mitochondrial/capillary regression).
+  confidence). The bound length is a hyperparameter, calibrated to the
+  onset of measurable detraining in trained athletes (VO2max decline,
+  mitochondrial/capillary regression).
 - `f`, `g`, and the observation model are *not jointly identified at
   framework level*. Identification comes from per-family restrictions:
   workout-only data constrains `f`, rest-only data constrains `g`,
@@ -253,7 +254,7 @@ The four conditional distributions that carry all the modeling content:
 2. **Observation** `p(X_t | Z_{t-1}, P_t, E_t)` — drives the prediction head
    and the deconfounding pipeline.
 3. **Workout-day transition** `f(Z_{t-1}, X_t) + noise`.
-4. **Rest-day transition** `g(Z_{t-1}) + noise`, valid up to 10 days.
+4. **Rest-day transition** `g(Z_{t-1}) + noise`, valid within a bounded rest window.
 
 Prediction decomposes as state-forward (via `f` and `g`) followed by
 observation at reference conditions `(P_{t+τ}, E_{t+τ})`. The framework
