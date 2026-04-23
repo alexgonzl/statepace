@@ -123,8 +123,17 @@ def make_splits(
 ) -> Iterable[EvalSplit]:
     """Produce per-athlete EvalSplit objects from a pre-computed cohort assignment.
 
-    fit_idx covers [0, warmup_days + train_days); score_idx covers
-    [warmup_days + train_days, warmup_days + train_days + test_days).
+    fit_idx always covers [0, warmup_days + train_days). score_idx and the
+    cohort label depend on cohort_assignment[sid]:
+
+    - "train" athletes emit TWO splits:
+        1. In-sample ("train" label): score_idx = [warmup_days, warmup_days + train_days).
+        2. Out-of-sample ("test" label): score_idx = [warmup_days + train_days,
+           warmup_days + train_days + test_days).
+    - "validation" athletes emit ONE split ("validation" label): score_idx =
+      [warmup_days + train_days, warmup_days + train_days + test_days).
+
+    Total splits = 2 * n_training_cohort + 1 * n_validation_cohort.
 
     Args:
         cohort: per-athlete Channels, keyed by subject_id.
@@ -136,7 +145,7 @@ def make_splits(
             "train" or "validation".
 
     Returns:
-        Iterable of EvalSplit, one per athlete.
+        Iterable of EvalSplit; two per training-cohort athlete, one per validation-cohort athlete.
 
     Raises:
         ValueError: if cohort, meta, and cohort_assignment key sets differ, or
@@ -149,7 +158,8 @@ def make_splits(
 
     required_len = warmup_days + train_days + test_days
     fit_idx = np.arange(0, warmup_days + train_days, dtype=int)
-    score_idx = np.arange(warmup_days + train_days, required_len, dtype=int)
+    train_score_idx = np.arange(warmup_days, warmup_days + train_days, dtype=int)
+    test_score_idx = np.arange(warmup_days + train_days, required_len, dtype=int)
 
     splits = []
     for sid, channels in cohort.items():
@@ -159,12 +169,26 @@ def make_splits(
                 f"need at least {required_len} (warmup={warmup_days} + "
                 f"train={train_days} + test={test_days})."
             )
-        splits.append(EvalSplit(
-            subject_id=sid,
-            cohort=cohort_assignment[sid],
-            fit_idx=fit_idx,
-            score_idx=score_idx,
-        ))
+        if cohort_assignment[sid] == "train":
+            splits.append(EvalSplit(
+                subject_id=sid,
+                cohort="train",
+                fit_idx=fit_idx,
+                score_idx=train_score_idx,
+            ))
+            splits.append(EvalSplit(
+                subject_id=sid,
+                cohort="test",
+                fit_idx=fit_idx,
+                score_idx=test_score_idx,
+            ))
+        else:
+            splits.append(EvalSplit(
+                subject_id=sid,
+                cohort="validation",
+                fit_idx=fit_idx,
+                score_idx=test_score_idx,
+            ))
 
     return splits
 

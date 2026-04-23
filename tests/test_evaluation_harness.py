@@ -179,12 +179,29 @@ def test_make_splits_shapes():
         cohort_assignment=assignment,
     ))
 
-    assert len(splits) == 50
+    # seed=0 → 44 train, 6 val → 2*44 + 6 = 94 splits total
+    n_train_athletes = sum(1 for v in assignment.values() if v == "train")
+    n_val_athletes = sum(1 for v in assignment.values() if v == "validation")
+    assert len(splits) == 2 * n_train_athletes + n_val_athletes
+
+    train_splits = [sp for sp in splits if sp.cohort == "train"]
+    test_splits = [sp for sp in splits if sp.cohort == "test"]
+    val_splits = [sp for sp in splits if sp.cohort == "validation"]
+
+    assert len(train_splits) == n_train_athletes
+    assert len(test_splits) == n_train_athletes
+    assert len(val_splits) == n_val_athletes
+
     for sp in splits:
-        assert sp.fit_idx.shape == (WARMUP_DAYS + TRAIN_DAYS,)  # (300,)
-        assert sp.score_idx.shape == (TEST_DAYS,)               # (60,)
+        assert sp.fit_idx.shape == (WARMUP_DAYS + TRAIN_DAYS,)
         assert sp.fit_idx.dtype == int
         assert sp.score_idx.dtype == int
+
+    for sp in train_splits:
+        assert sp.score_idx.shape == (TRAIN_DAYS,)
+
+    for sp in test_splits + val_splits:
+        assert sp.score_idx.shape == (TEST_DAYS,)
 
 
 def test_make_splits_no_overlap():
@@ -209,12 +226,17 @@ def test_make_splits_no_overlap():
         cohort_assignment=assignment,
     ))
 
-    total = WARMUP_DAYS + TRAIN_DAYS + TEST_DAYS  # 360
+    full_range = set(range(WARMUP_DAYS + TRAIN_DAYS + TEST_DAYS))
     for sp in splits:
         fit_set = set(sp.fit_idx.tolist())
         score_set = set(sp.score_idx.tolist())
-        assert fit_set.isdisjoint(score_set)
-        assert fit_set | score_set == set(range(total))
+        if sp.cohort == "train":
+            # In-sample: score_idx is a subset of fit_idx
+            assert score_set <= fit_set
+        else:
+            # "test" and "validation": disjoint, union covers full timeline
+            assert fit_set.isdisjoint(score_set)
+            assert fit_set | score_set == full_range
 
 
 def test_make_splits_cohort_label():
@@ -239,8 +261,16 @@ def test_make_splits_cohort_label():
         cohort_assignment=assignment,
     ))
 
+    from collections import defaultdict
+    labels_by_sid: dict[str, list[str]] = defaultdict(list)
     for sp in splits:
-        assert sp.cohort == assignment[sp.subject_id]
+        labels_by_sid[sp.subject_id].append(sp.cohort)
+
+    for sid, labels in labels_by_sid.items():
+        if assignment[sid] == "train":
+            assert sorted(labels) == ["test", "train"]
+        else:
+            assert labels == ["validation"]
 
 
 def test_make_splits_short_timeline_raises():
