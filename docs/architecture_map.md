@@ -494,7 +494,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable, Literal, Mapping, Sequence
 from statepace.channels import AthleteMeta, Channels, Z, X, Array
-from statepace.filter import StateEstimator
+from statepace.filter import StateEstimator, Prior
 from statepace.observation import ObservationModel
 from statepace.transitions import WorkoutTransition, RestTransition
 
@@ -555,12 +555,41 @@ class EvalResult:
     X_pred: Mapping[str, X]                 # keyed by subject_id; one-step observation predictions on score_idx
     cohort: Mapping[str, Cohort]            # subject_id -> cohort label
     rest_bound_violations: Mapping[str, Array]  # keyed by subject_id; bool, shape (T,), flags A5 overruns
+
+
+# One concrete wiring of the Protocols; sweep-runner varies these across bundles
+# while cohort and splits stay fixed. `label` keys results in SweepResult.
+@dataclass(frozen=True)
+class FormsBundle:
+    label: str
+    observation: ObservationModel
+    workout_transition: WorkoutTransition
+    rest_transition: RestTransition
+    estimator: StateEstimator
+    prior: Prior | Mapping[str, Prior]
+
+
+# Invokes run_evaluation once per bundle; duplicate labels are a caller error.
+# Body lands at M4 alongside the first reference ObservationModel.
+def run_sweep(
+    cohort: Mapping[str, Channels],
+    splits: Iterable[EvalSplit],
+    bundles: Sequence[FormsBundle],
+) -> "SweepResult": ...
+
+
+@dataclass(frozen=True)
+class SweepResult:
+    results: Mapping[str, EvalResult]    # keyed by bundle label
+    bundles: Mapping[str, FormsBundle]   # keyed by bundle label; same keys as results
 ```
 
 **In-scope**: fixture wiring (synthetic + real); stratified cohort
 assignment (`assign_cohorts`, ADR 0003); warm-up enforcement;
 rest-day-bound flagging; invoking estimator + observation to produce
-arrays metrics operate on.
+arrays metrics operate on; sweeping across Protocol wirings
+(`FormsBundle`, `run_sweep`, `SweepResult`) so the framework does not
+privilege a single functional form.
 
 **Out-of-scope**: any model logic; deconfounding projection; metric
 definitions.
