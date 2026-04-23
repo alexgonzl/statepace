@@ -1,7 +1,7 @@
 # Post-Scaffold Sequencing
 
 **Status:** active
-**Last updated:** 2026-04-22
+**Last updated:** 2026-04-22 (D2/D3 resolved; M2 implementation partially landed)
 
 The sequencing plan for work after the modeling-pipeline scaffold. Produces the project's two outputs — state estimation (`Z` trajectory) and next-workout prediction (`X̂`) — under a proper train / test / validation split.
 
@@ -16,15 +16,18 @@ The sequencing plan for work after the modeling-pipeline scaffold. Produces the 
 | M0 | ADR 0001 — shared params, per-athlete Z | `2d432d5` | Seeded `docs/decisions/`. |
 | — | ADR 0002 — cohort-in-fit, channels-in-infer | `b8fa1a9` | Emerged from the architect's closing pass on the multi-athlete container question; not pre-enumerated in the plan. |
 | M1a | Synthetic fixture factory + tests | `9a5e9c2` | `tests/fixtures/synthetic.py` + `tests/test_channels.py`. 6/6 new tests pass; 8/8 suite-wide. |
+| — | ADR 0003 — cohort-assignment (stratified by sex + volume) | `ce5fd11` | Resolves D3. Introduces `AthleteMeta` sibling to `Channels`; architecture_map §3.1/§3.7/§4 updated (new boundary rule 13). |
+| M2 (partial) | `AthleteMeta` dataclass + synthetic fixture factory | `19bc32e` | `statepace/channels.py` + `tests/fixtures/synthetic.py::make_athlete_meta`. 8/8 suite-wide. `assign_cohorts` / `make_splits` impl still pending. |
 
 ### Active
 
-**M2 — Split / cohort machinery.** Pending decisions D2 and D3 (see Open decisions). Blocks M8, M9, M10.
+**M2 — Split / cohort machinery.** D2 and D3 resolved. `AthleteMeta` landed; remaining work is the `assign_cohorts` / `make_splits` implementation. Blocks M8, M9, M10.
 
 ### Audits landed
 
 - **Identifiability-auditor on ADR 0002** (2026-04-22): surfaced a structural pooling-vs-local-latent tension — `O(N·T·d_Z)` per-athlete state degrees of freedom vs `O(1)` shared parameters. Proposed three Protocol additions to the `StateEstimator`.
 - **Senior-scientist second opinion** (2026-04-22): rejected the auditor's `score(channels)` as functional-form contamination; deferred the parameters handle; accepted `d_Z` as a class attribute. Within-cohort weak-identification diagnostic recommendation captured in ADR 0002's follow-ups.
+- **Master-architect on `AthleteMeta` placement** (2026-04-22): placed alongside `Channels` in `statepace/channels.py` as a sibling dataclass (not a new module); flagged the session-vs-athlete boundary as boundary rule 13; deferred `__init__.py` export to the M2 implementation commit. Design fed into ADR 0003.
 
 ---
 
@@ -77,19 +80,24 @@ Wire one real-athlete subset to confirm `docs/data_contract.md` matches actual d
 
 ### M2 — Split / cohort machinery
 
-Implement the train/test/validation split per ADR 0001 + ADR 0002. Lives in `statepace/evaluation/harness.py` (already scaffolded, signature `make_splits(cohort: Mapping[str, Channels], warmup_days: int) -> Iterable[EvalSplit]`).
+Implement the train/test/validation split per ADR 0001 + ADR 0002 + ADR 0003. Lives in `statepace/evaluation/harness.py` (signature updated in architecture_map §3.7 to `make_splits(cohort: Mapping[str, Channels], meta: Mapping[str, AthleteMeta], warmup_days: int) -> Iterable[EvalSplit]`).
 
 **Work:**
+- `assign_cohorts(athletes, meta, *, validation_fraction, seed, volume_bucket_edges)` — stratified random split on (`sex`, volume bucket); per ADR 0003.
 - `make_splits` produces per-athlete `EvalSplit` objects with `cohort: Literal["train", "test", "validation"]`.
 - For training-cohort athletes: `fit_idx = post-warmup train indices`, `score_idx = test indices`.
 - For validation-cohort athletes: same structure; `cohort="validation"` so scoring reports separately.
 - Warm-up mask enforcement at harness edge (boundary rule 6).
 
-**Hyperparameters surfaced by name (no defaults):** `warmup_days`, `train_days`, `test_days`, cohort-assignment rule.
+**Landed (as of `19bc32e`):** `AthleteMeta` dataclass in `statepace/channels.py`; `make_athlete_meta` in `tests/fixtures/synthetic.py`; shape-parity tests.
 
-**Decision gates:** D2 (hyperparameter values for tests), D3 (cohort-assignment procedure).
+**Remaining:** `assign_cohorts` + `make_splits` implementation + M2 verification tests (using `warmup_days=90, train_days=210, test_days=60` per D2).
 
-**Critical files:** `statepace/evaluation/harness.py`; possibly `statepace/evaluation/splits.py` (architect call at M2 start).
+**Hyperparameters surfaced by name (no defaults):** `warmup_days`, `train_days`, `test_days`, `validation_fraction`, `seed`, `volume_bucket_edges`.
+
+**Decision gates:** D2 ✅ (`90 / 210 / 60`), D3 ✅ (ADR 0003).
+
+**Critical files:** `statepace/evaluation/harness.py`; possibly `statepace/evaluation/splits.py` (architect call when implementation lands).
 
 ### M3 — `evaluation/deconfounding.py`
 
@@ -150,8 +158,8 @@ After M10, record what was recovered, what the test-vs-validation gap looks like
 | # | Decision | Needed before | Status |
 |---|---|---|---|
 | D1 | Shared params, per-athlete `Z` | M0 | ✅ taken — ADR 0001 |
-| D2 | `warmup_days`, `train_days`, `test_days` values for M2 tests | M2 | ⏸ open |
-| D3 | Cohort-assignment procedure | M2 | ⏸ open — will get its own ADR |
+| D2 | `warmup_days`, `train_days`, `test_days` values for M2 tests | M2 | ✅ resolved — `90 / 210 / 60` (T=360) |
+| D3 | Cohort-assignment procedure | M2 | ✅ taken — ADR 0003 |
 | D4 | Synthetic cohort sizing for tests (`n_athletes`, `n_days`) | M1a | ✅ resolved inline — factories parameterized, test files decide |
 | D5 | Real-data availability + path | M1b | ⏸ open (external) |
 | D6 | Functional form of `p(X | Z, P, E)` | M4 | ⏸ out of plan; separate scoping session |
