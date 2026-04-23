@@ -1,7 +1,7 @@
 # Post-Scaffold Sequencing
 
 **Status:** active
-**Last updated:** 2026-04-23 (ADR 0004 lands D10: prediction metric + τ-horizons)
+**Last updated:** 2026-04-23 (M4 Track A: `make_splits` in-sample train-slot per ADR 0004)
 
 The sequencing plan for work after the modeling-pipeline scaffold. Produces the project's two outputs — state estimation (`Z` trajectory) and next-workout prediction (`X̂`) — under a proper train / test / validation split.
 
@@ -21,10 +21,11 @@ The sequencing plan for work after the modeling-pipeline scaffold. Produces the 
 | M2b | `assign_cohorts` + `make_splits` + N=50 test cohort | `ee3dd76` | `statepace/evaluation/harness.py` + `tests/test_evaluation_harness.py`. 9 new tests; 19/19 suite-wide. architecture_map §3.7 `make_splits` signature extended with `train_days`, `test_days`, `cohort_assignment`. |
 | — | Sweep-harness signatures (`FormsBundle`, `run_sweep`, `SweepResult`) | `cb81648`, `d7dc83e` | Signature-only landing in `statepace/evaluation/harness.py` and `docs/architecture_map.md` §3.7. Reframes D6/D7/D8 from "pick one form" to "sweep across forms." Body lands at M4 alongside the first reference `ObservationModel`. 19/19 suite-wide (unchanged). |
 | — | ADR 0004 — prediction metric + τ-horizons (D10) | `ba6f832` | Two residual streams (raw + reference), five stats each, per-subject aggregation, three-way cohort reporting. Top-speed subset gated by per-athlete Riegel fit over `[0, warmup_days + train_days)`. Exports follow-ups to M4 (`make_splits` in-sample split) and M8 (`project_to_reference` body). |
+| M4 Track A | `make_splits` in-sample train-slot | `3a47ca0` | Training-cohort athletes emit two `EvalSplit`s (`"train"` with `score_idx = [warmup_days, warmup_days + train_days)` and `"test"` with the post-train window); validation-cohort athletes emit one `"validation"` split. N=50 synthetic cohort (seed=0): 94 splits (44+44+6). 19/19 suite-wide. |
 
 ### Active
 
-None. M3 deferred (see M3 detail below). M4 is the next actionable milestone: first reference `ObservationModel` + `run_sweep` body.
+M4 Track B: first reference `ObservationModel` + `run_sweep` body. Track A landed (`3a47ca0`); Track B is the remaining M4 work and carries its own ADR.
 
 ### Audits landed
 
@@ -119,6 +120,8 @@ Additional reference implementations are additive and land in later milestones o
 Also lands at M4 per ADR 0004: `make_splits` emits an additional in-sample `EvalSplit` for each training-cohort athlete (`cohort="train"`, `score_idx` inside `[warmup_days, warmup_days + train_days)`) so the three-way cohort reporting has a train-slot to populate. Existing `make_splits` tests update in the same commit.
 
 **Critical files:** `statepace/observation.py` (first reference impl), `statepace/evaluation/harness.py` (`run_sweep` body, duplicate-label check, `make_splits` in-sample split).
+
+**Track A landed** (`3a47ca0`): `make_splits` in-sample split. Training-cohort athletes emit two splits (`"train"` + `"test"`); validation-cohort emit one (`"validation"`). Remaining Track B work: reference `ObservationModel` + ADR + `run_sweep` body + duplicate-label check.
 
 ### M5 — First reference `WorkoutTransition` + `RestTransition`
 
