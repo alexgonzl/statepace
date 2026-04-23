@@ -1,7 +1,7 @@
 # Post-Scaffold Sequencing
 
 **Status:** active
-**Last updated:** 2026-04-22 (D2/D3 resolved; M2 implementation partially landed)
+**Last updated:** 2026-04-22 (M2 complete; next active milestone is M3)
 
 The sequencing plan for work after the modeling-pipeline scaffold. Produces the project's two outputs — state estimation (`Z` trajectory) and next-workout prediction (`X̂`) — under a proper train / test / validation split.
 
@@ -17,11 +17,12 @@ The sequencing plan for work after the modeling-pipeline scaffold. Produces the 
 | — | ADR 0002 — cohort-in-fit, channels-in-infer | `b8fa1a9` | Emerged from the architect's closing pass on the multi-athlete container question; not pre-enumerated in the plan. |
 | M1a | Synthetic fixture factory + tests | `9a5e9c2` | `tests/fixtures/synthetic.py` + `tests/test_channels.py`. 6/6 new tests pass; 8/8 suite-wide. |
 | — | ADR 0003 — cohort-assignment (stratified by sex + volume) | `ce5fd11` | Resolves D3. Introduces `AthleteMeta` sibling to `Channels`; architecture_map §3.1/§3.7/§4 updated (new boundary rule 13). |
-| M2 (partial) | `AthleteMeta` dataclass + synthetic fixture factory | `19bc32e` | `statepace/channels.py` + `tests/fixtures/synthetic.py::make_athlete_meta`. 8/8 suite-wide. `assign_cohorts` / `make_splits` impl still pending. |
+| M2a | `AthleteMeta` dataclass + synthetic fixture factory | `19bc32e` | `statepace/channels.py` + `tests/fixtures/synthetic.py::make_athlete_meta`. 8/8 suite-wide. |
+| M2b | `assign_cohorts` + `make_splits` + N=50 test cohort | `ee3dd76` | `statepace/evaluation/harness.py` + `tests/test_evaluation_harness.py`. 9 new tests; 19/19 suite-wide. architecture_map §3.7 `make_splits` signature extended with `train_days`, `test_days`, `cohort_assignment`. |
 
 ### Active
 
-**M2 — Split / cohort machinery.** D2 and D3 resolved. `AthleteMeta` landed; remaining work is the `assign_cohorts` / `make_splits` implementation. Blocks M8, M9, M10.
+**M3 — `evaluation/deconfounding.py`.** Ready to start (no gating decisions). Next milestone.
 
 ### Audits landed
 
@@ -52,8 +53,8 @@ The sequencing plan for work after the modeling-pipeline scaffold. Produces the 
 M0  ADR 0001 — shared params, per-athlete Z       ✅ done (2d432d5)
 M1a Synthetic fixtures                              ✅ done (9a5e9c2)
 M1b Real-data fixture                               ⏸ gated on D5 (external)
-M2  Split/cohort machinery                          ▶ active — gated on D2, D3
-M3  evaluation/deconfounding.py                    ⏸ ready; parallel with M2
+M2  Split/cohort machinery                          ✅ done (ee3dd76)
+M3  evaluation/deconfounding.py                    ▶ active — ready
 M4  ObservationModel (one concrete impl)           ⏸ gated on D6
 M5  WorkoutTransition + RestTransition             ⏸ gated on D7
 M6  StateEstimator (one concrete impl)             ⏸ gated on D8 + M4 + M5
@@ -89,15 +90,15 @@ Implement the train/test/validation split per ADR 0001 + ADR 0002 + ADR 0003. Li
 - For validation-cohort athletes: same structure; `cohort="validation"` so scoring reports separately.
 - Warm-up mask enforcement at harness edge (boundary rule 6).
 
-**Landed (as of `19bc32e`):** `AthleteMeta` dataclass in `statepace/channels.py`; `make_athlete_meta` in `tests/fixtures/synthetic.py`; shape-parity tests.
+**Landed:**
+- `19bc32e` — `AthleteMeta` dataclass in `statepace/channels.py`; `make_athlete_meta` in `tests/fixtures/synthetic.py`; shape-parity tests.
+- `ee3dd76` — `assign_cohorts` and `make_splits` in `statepace/evaluation/harness.py`; N=50 synthetic test cohort (`make_m2_test_cohort`); 9 new verification tests. architecture_map §3.7 `make_splits` signature extended with keyword-only `train_days`, `test_days`, `cohort_assignment`. Volume summed over the train window (pre-test, no leakage into scoring).
 
-**Remaining:** `assign_cohorts` + `make_splits` implementation + M2 verification tests (using `warmup_days=90, train_days=210, test_days=60` per D2).
-
-**Hyperparameters surfaced by name (no defaults):** `warmup_days`, `train_days`, `test_days`, `validation_fraction`, `seed`, `volume_bucket_edges`.
+**Hyperparameters surfaced by name (no defaults):** `warmup_days`, `train_days`, `test_days`, `validation_fraction`, `seed`, `volume_bucket_edges`, `volume_component`.
 
 **Decision gates:** D2 ✅ (`90 / 210 / 60`), D3 ✅ (ADR 0003).
 
-**Critical files:** `statepace/evaluation/harness.py`; possibly `statepace/evaluation/splits.py` (architect call when implementation lands).
+**Critical files:** `statepace/evaluation/harness.py`, `tests/test_evaluation_harness.py`, `tests/fixtures/synthetic.py`.
 
 ### M3 — `evaluation/deconfounding.py`
 
