@@ -510,11 +510,16 @@ class EvalSplit:
     score_idx: Array  # int, indices into this athlete's Channels.dates
 
 
-# meta is keyed by subject_id matching cohort; supplies stratification inputs (sex, and any derived quantities make_splits itself computes from cohort).
+# meta is keyed by subject_id matching cohort; cohort_assignment is the output of assign_cohorts.
+# train_days and test_days are required to compute fit_idx / score_idx ranges.
 def make_splits(
     cohort: Mapping[str, Channels],
     meta: Mapping[str, AthleteMeta],
+    *,
     warmup_days: int,
+    train_days: int,
+    test_days: int,
+    cohort_assignment: Mapping[str, Literal["train", "validation"]],
 ) -> Iterable[EvalSplit]: ...
 
 def run_evaluation(
