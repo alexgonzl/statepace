@@ -1,7 +1,7 @@
 # Post-Scaffold Sequencing
 
 **Status:** active
-**Last updated:** 2026-04-22 (sweep-harness signature landed; D6/D7/D8 dissolved — framework picks no form)
+**Last updated:** 2026-04-23 (ADR 0004 lands D10: prediction metric + τ-horizons)
 
 The sequencing plan for work after the modeling-pipeline scaffold. Produces the project's two outputs — state estimation (`Z` trajectory) and next-workout prediction (`X̂`) — under a proper train / test / validation split.
 
@@ -20,6 +20,7 @@ The sequencing plan for work after the modeling-pipeline scaffold. Produces the 
 | M2a | `AthleteMeta` dataclass + synthetic fixture factory | `19bc32e` | `statepace/channels.py` + `tests/fixtures/synthetic.py::make_athlete_meta`. 8/8 suite-wide. |
 | M2b | `assign_cohorts` + `make_splits` + N=50 test cohort | `ee3dd76` | `statepace/evaluation/harness.py` + `tests/test_evaluation_harness.py`. 9 new tests; 19/19 suite-wide. architecture_map §3.7 `make_splits` signature extended with `train_days`, `test_days`, `cohort_assignment`. |
 | — | Sweep-harness signatures (`FormsBundle`, `run_sweep`, `SweepResult`) | `cb81648`, `d7dc83e` | Signature-only landing in `statepace/evaluation/harness.py` and `docs/architecture_map.md` §3.7. Reframes D6/D7/D8 from "pick one form" to "sweep across forms." Body lands at M4 alongside the first reference `ObservationModel`. 19/19 suite-wide (unchanged). |
+| — | ADR 0004 — prediction metric + τ-horizons (D10) | `ba6f832` | Two residual streams (raw + reference), five stats each, per-subject aggregation, three-way cohort reporting. Top-speed subset gated by per-athlete Riegel fit over `[0, warmup_days + train_days)`. Exports follow-ups to M4 (`make_splits` in-sample split) and M8 (`project_to_reference` body). |
 
 ### Active
 
@@ -115,7 +116,9 @@ Ship (a) one concrete `ObservationModel` conforming to the scaffold Protocol, an
 
 Additional reference implementations are additive and land in later milestones or separately from the sequencing chain. Each new reference impl ships with its own ADR.
 
-**Critical files:** `statepace/observation.py` (first reference impl), `statepace/evaluation/harness.py` (`run_sweep` body, duplicate-label check).
+Also lands at M4 per ADR 0004: `make_splits` emits an additional in-sample `EvalSplit` for each training-cohort athlete (`cohort="train"`, `score_idx` inside `[warmup_days, warmup_days + train_days)`) so the three-way cohort reporting has a train-slot to populate. Existing `make_splits` tests update in the same commit.
+
+**Critical files:** `statepace/observation.py` (first reference impl), `statepace/evaluation/harness.py` (`run_sweep` body, duplicate-label check, `make_splits` in-sample split).
 
 ### M5 — First reference `WorkoutTransition` + `RestTransition`
 
@@ -138,10 +141,11 @@ Glue. `forward_state` propagates `Z` through a `ForwardSchedule`. `predict_sessi
 ### M8 — `evaluation/metrics.py` + harness wiring
 
 - State metric(s) on `Z_hat` — trajectory diagnostics.
-- Prediction metric(s) on `X_pred` — residual-based; specific form is D10.
+- Prediction metric(s) on `X_pred` — per ADR 0004: two residual streams (raw + reference), five stats each (RMSE, MAE, normRMSE, normMAE, Spearman), per-subject aggregation, three-way cohort reporting (train / test / val), τ-bins `1–3, 4–7, 8–10, 11+`, pooled-only top-speed subset gated by per-athlete Riegel fit.
 - `run_evaluation` wires everything end-to-end; returns `EvalResult` keyed by `subject_id` with cohort labels.
+- `evaluation/deconfounding.py` body (`project_to_reference`) is a hard dependency of the reference-space stream; lands before or alongside M8.
 
-**Hyperparameters surfaced by name:** τ-horizons to evaluate; metric choice.
+**Hyperparameters surfaced by name:** τ-horizons (bins are fixed per ADR 0004); metric target (`X`-channel, deferred to M9/M10 per late-naming).
 
 **Critical files:** `statepace/evaluation/metrics.py` (new), `statepace/evaluation/harness.py`.
 
@@ -172,7 +176,7 @@ After M10, record what was recovered, what the test-vs-validation gap looks like
 | D7 | Functional forms of `f` and `g` | M5 | ✂ dissolved — same as D6 |
 | D8 | `StateEstimator` family | M6 | ✂ dissolved — same as D6 |
 | D9 | Dimensionality of `Z` (`d_Z`) | M4 (load-bearing downstream) | ⏸ open — declared by each reference impl |
-| D10 | Prediction metric(s) and τ-horizons | M8 | ⏸ open — own ADR |
+| D10 | Prediction metric(s) and τ-horizons | M8 | ✅ taken — ADR 0004 (`ba6f832`) |
 
 ---
 
