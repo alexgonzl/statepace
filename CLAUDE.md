@@ -85,6 +85,9 @@ Transform tasks into verifiable goals:
 - "Fix the bug" → "Reproduce it in a test, then fix"
 - "Refactor X" → "Ensure tests pass before and after"
 
+### 5. Docs: as simple as possible, as complex as necessary
+Design and writing guideline for ADRs, plans, and architecture docs. Default to the shortest phrasing that preserves the decision; add structure only where ambiguity would otherwise slip through.
+
 ---
 
 ## Standing Rules
