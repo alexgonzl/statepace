@@ -8,7 +8,7 @@ from typing import Iterable, Literal, Mapping, Sequence
 import numpy as np
 
 from statepace.channels import AthleteMeta, Channels, Z, X, Array
-from statepace.filter import StateEstimator
+from statepace.filter import StateEstimator, Prior
 from statepace.observation import ObservationModel
 from statepace.transitions import WorkoutTransition, RestTransition
 
@@ -185,3 +185,39 @@ class EvalResult:
     X_pred: Mapping[str, X]                     # keyed by subject_id; one-step observation predictions on score_idx
     cohort: Mapping[str, Cohort]                # subject_id -> cohort label
     rest_bound_violations: Mapping[str, Array]  # keyed by subject_id; bool, shape (T,), flags A5 overruns
+
+
+@dataclass(frozen=True)
+class FormsBundle:
+    """One concrete wiring of the Protocols for a single evaluation run.
+
+    Groups the four Protocol implementations and their prior so a sweep
+    can vary them together. `label` keys the bundle into SweepResult and
+    must be unique within a given sweep (enforced by run_sweep, not here).
+    """
+    label: str
+    observation: ObservationModel
+    workout_transition: WorkoutTransition
+    rest_transition: RestTransition
+    estimator: StateEstimator
+    prior: Prior | Mapping[str, Prior]
+
+
+def run_sweep(
+    cohort: Mapping[str, Channels],
+    splits: Iterable[EvalSplit],
+    bundles: Sequence[FormsBundle],
+) -> "SweepResult":
+    """Invoke run_evaluation once per bundle, keying results by bundle label.
+
+    All bundles share the same cohort and splits; only the Protocol wiring
+    varies across runs. Duplicate labels in `bundles` are a caller error
+    (validated at M4 alongside the body).
+    """
+    ...
+
+
+@dataclass(frozen=True)
+class SweepResult:
+    results: Mapping[str, EvalResult]    # keyed by bundle label
+    bundles: Mapping[str, FormsBundle]   # keyed by bundle label; same keys as results
