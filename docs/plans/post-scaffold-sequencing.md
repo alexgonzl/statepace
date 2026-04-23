@@ -1,7 +1,7 @@
 # Post-Scaffold Sequencing
 
 **Status:** active
-**Last updated:** 2026-04-22 (M2 complete; M3 deferred under the late-naming principle — no active milestone)
+**Last updated:** 2026-04-22 (sweep-harness signature landed; D6/D7/D8 dissolved — framework picks no form)
 
 The sequencing plan for work after the modeling-pipeline scaffold. Produces the project's two outputs — state estimation (`Z` trajectory) and next-workout prediction (`X̂`) — under a proper train / test / validation split.
 
@@ -19,10 +19,11 @@ The sequencing plan for work after the modeling-pipeline scaffold. Produces the 
 | — | ADR 0003 — cohort-assignment (stratified by sex + volume) | `ce5fd11` | Resolves D3. Introduces `AthleteMeta` sibling to `Channels`; architecture_map §3.1/§3.7/§4 updated (new boundary rule 13). |
 | M2a | `AthleteMeta` dataclass + synthetic fixture factory | `19bc32e` | `statepace/channels.py` + `tests/fixtures/synthetic.py::make_athlete_meta`. 8/8 suite-wide. |
 | M2b | `assign_cohorts` + `make_splits` + N=50 test cohort | `ee3dd76` | `statepace/evaluation/harness.py` + `tests/test_evaluation_harness.py`. 9 new tests; 19/19 suite-wide. architecture_map §3.7 `make_splits` signature extended with `train_days`, `test_days`, `cohort_assignment`. |
+| — | Sweep-harness signatures (`FormsBundle`, `run_sweep`, `SweepResult`) | `cb81648`, `d7dc83e` | Signature-only landing in `statepace/evaluation/harness.py` and `docs/architecture_map.md` §3.7. Reframes D6/D7/D8 from "pick one form" to "sweep across forms." Body lands at M4 alongside the first reference `ObservationModel`. 19/19 suite-wide (unchanged). |
 
 ### Active
 
-None. M3 deferred (see M3 detail below). Next actionable milestones need D6/D7/D8 scoping or M1b real-data availability.
+None. M3 deferred (see M3 detail below). M4 is the next actionable milestone: first reference `ObservationModel` + `run_sweep` body.
 
 ### Audits landed
 
@@ -108,23 +109,25 @@ Reference-template projection per `docs/conventions.md` and architecture_map §3
 
 **Critical files:** `statepace/evaluation/deconfounding.py` (new).
 
-### M4 — `ObservationModel` implementation
+### M4 — First reference `ObservationModel` + `run_sweep` body
 
-**Gated on D6.** Once the functional form of the observation model is chosen (its own ADR), implement one concrete class conforming to the scaffold Protocol.
+Ship (a) one concrete `ObservationModel` conforming to the scaffold Protocol, and (b) the `run_sweep` body that iterates over `FormsBundle`s and populates a `SweepResult`. The reference implementation carries its own ADR declaring its family and compatibility posture (X-parameterization stance, Z-gauge choice — identifiability-baseline §3); the framework itself commits to no privileged form.
 
-**Critical files:** `statepace/observation.py` (replace scaffold bodies).
+Additional reference implementations are additive and land in later milestones or separately from the sequencing chain. Each new reference impl ships with its own ADR.
 
-### M5 — `WorkoutTransition` + `RestTransition` implementations
+**Critical files:** `statepace/observation.py` (first reference impl), `statepace/evaluation/harness.py` (`run_sweep` body, duplicate-label check).
 
-**Gated on D7.** Transitions own the rest-day bound (`max_consecutive_rest_days`).
+### M5 — First reference `WorkoutTransition` + `RestTransition`
 
-**Critical files:** `statepace/transitions.py` (replace scaffold bodies).
+Ship one concrete pair. Transitions own the rest-day bound (`max_consecutive_rest_days`). The ADR covering this reference pair declares its coherence posture against the M4 reference observation (dual-role `X`, per identifiability-baseline §3 concern 1).
 
-### M6 — `StateEstimator` implementation
+**Critical files:** `statepace/transitions.py` (first reference impls).
 
-**Gated on D8 + M4 + M5.** Must respect `Prior.diffuse=True` (A8), warm-up masking at harness (boundary rule 6), emit `Z` over full history. The ADR selecting the family must name a within-cohort weak-identification diagnostic (per ADR 0002's follow-ups).
+### M6 — First reference `StateEstimator`
 
-**Critical files:** `statepace/filter.py` (replace scaffold bodies).
+Gated on M4 + M5. Must respect `Prior.diffuse=True` (A8), warm-up masking at harness (boundary rule 6), emit `Z` over full history. The ADR covering this reference estimator must name a within-cohort weak-identification diagnostic (per ADR 0002's follow-ups).
+
+**Critical files:** `statepace/filter.py` (first reference impl).
 
 ### M7 — `forward.py` + `predict.py`
 
@@ -165,10 +168,10 @@ After M10, record what was recovered, what the test-vs-validation gap looks like
 | D3 | Cohort-assignment procedure | M2 | ✅ taken — ADR 0003 |
 | D4 | Synthetic cohort sizing for tests (`n_athletes`, `n_days`) | M1a | ✅ resolved inline — factories parameterized, test files decide |
 | D5 | Real-data availability + path | M1b | ⏸ open (external) |
-| D6 | Functional form of `p(X | Z, P, E)` | M4 | ⏸ out of plan; separate scoping session |
-| D7 | Functional forms of `f` and `g` | M5 | ⏸ out of plan; separate scoping session |
-| D8 | `StateEstimator` family | M6 | ⏸ out of plan; separate scoping session |
-| D9 | Dimensionality of `Z` (`d_Z`) | M4 (load-bearing downstream) | ⏸ open |
+| D6 | Functional form of `p(X | Z, P, E)` | M4 | ✂ dissolved — framework picks no form; each reference impl carries its own ADR (see Completed: sweep-harness signatures `cb81648`, `d7dc83e`) |
+| D7 | Functional forms of `f` and `g` | M5 | ✂ dissolved — same as D6 |
+| D8 | `StateEstimator` family | M6 | ✂ dissolved — same as D6 |
+| D9 | Dimensionality of `Z` (`d_Z`) | M4 (load-bearing downstream) | ⏸ open — declared by each reference impl |
 | D10 | Prediction metric(s) and τ-horizons | M8 | ⏸ open — own ADR |
 
 ---
@@ -195,8 +198,7 @@ After M10, record what was recovered, what the test-vs-validation gap looks like
 
 ## Out of scope (explicit — will not creep back in)
 
-- Functional forms of the observation model, `f`, `g`. Each is its own ADR-scoped decision.
-- Estimator family choice. Own ADR.
+- **Picking a privileged functional form.** The framework commits to no single form for observation, `f`, `g`, or estimator. Reference implementations are additive and each carries its own ADR; the sweep harness (`run_sweep`) composes them. D6/D7/D8 are dissolved, not deferred.
 - Selection model `p(P|Z)`. Deferred per architecture_map §5.1.
 - Re-entry policy past the rest bound. Deferred per architecture_map §5 item 2.
 - Health-state projection `h(Z_t)`. Not on the prediction path.
