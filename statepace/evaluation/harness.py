@@ -176,6 +176,8 @@ def run_evaluation(
     observation: ObservationModel,
     workout_transition: WorkoutTransition,
     rest_transition: RestTransition,
+    *,
+    prior: Prior | Mapping[str, Prior],
 ) -> "EvalResult": ...
 
 
