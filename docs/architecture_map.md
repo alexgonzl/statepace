@@ -492,7 +492,7 @@ inverse at the queried conditions. No new modeling.
 ```python
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Iterable, Literal, Mapping
+from typing import Iterable, Literal, Mapping, Sequence
 from statepace.channels import AthleteMeta, Channels, Z, X, Array
 from statepace.filter import StateEstimator
 from statepace.observation import ObservationModel
@@ -508,6 +508,23 @@ class EvalSplit:
     cohort: Cohort
     fit_idx: Array    # int, indices into this athlete's Channels.dates
     score_idx: Array  # int, indices into this athlete's Channels.dates
+
+
+# Stratified random cohort assignment per ADR 0003.
+# Volume is summed over the train window [warmup_days, warmup_days+train_days);
+# strata are (sex, volume bucket via np.digitize on volume_bucket_edges);
+# validation_fraction is a per-stratum lower bound (ceil rounding).
+def assign_cohorts(
+    athletes: Mapping[str, Channels],
+    meta: Mapping[str, AthleteMeta],
+    *,
+    validation_fraction: float,
+    seed: int,
+    volume_bucket_edges: Sequence[float],
+    warmup_days: int,
+    train_days: int,
+    volume_component: str,
+) -> Mapping[str, Literal["train", "validation"]]: ...
 
 
 # meta is keyed by subject_id matching cohort; cohort_assignment is the output of assign_cohorts.
@@ -540,7 +557,8 @@ class EvalResult:
     rest_bound_violations: Mapping[str, Array]  # keyed by subject_id; bool, shape (T,), flags A5 overruns
 ```
 
-**In-scope**: fixture wiring (synthetic + real); warm-up enforcement;
+**In-scope**: fixture wiring (synthetic + real); stratified cohort
+assignment (`assign_cohorts`, ADR 0003); warm-up enforcement;
 rest-day-bound flagging; invoking estimator + observation to produce
 arrays metrics operate on.
 
