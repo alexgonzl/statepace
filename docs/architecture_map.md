@@ -17,7 +17,7 @@ parameterization), not in the module graph.
 
 | Module | DAG primitive(s) | Notes |
 |---|---|---|
-| `channels.py` | Primitives §1 (`Z`, `P`, `X`, `E`) — the typing layer | Boundary between raw frames and everything else. No DAG edge lives here. |
+| `channels.py` | Primitives §1 (`Z`, `P`, `X`, `E`) — the typing layer | Session-vs-athlete boundary. `AthleteMeta` not on any DAG edge. Used only by split/cohort machinery in `evaluation/harness.py`. |
 | `observation.py` | Edges `Z_{t-1} -> X_t`, `P_t -> X_t`, `E_t -> X_t` — i.e. `p(X_t \| Z_{t-1}, P_t, E_t)` (§3 observation model) | Carries forward (emission) + inverse (solve for the unobserved `X`-component given the rest). |
 | `transitions.py` | Edges `Z_{t-1} -> Z_t`, `X_t -> Z_t` — `f` (workout) and `g` (rest, bounded per §A5 via `max_consecutive_rest_days`) | Two regimes, distinct functional forms. |
 | `filter.py` | Inference target §6 — `p(Z_t \| P_{1:t}, X_{1:t}, E_{1:t})` (filter) and `p(Z_t \| P_{1:T}, X_{1:T}, E_{1:T})` (smoother) | One interface; estimator family (EWM / Kalman / GP / ML) is an implementation choice. |
@@ -64,7 +64,7 @@ single place raw frames enter the package.
 ```python
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Literal, Protocol
 import numpy as np
 import pandas as pd
 
@@ -129,6 +129,20 @@ class Channels:
     E: E
 
 
+@dataclass(frozen=True)
+class AthleteMeta:
+    """Per-athlete invariant metadata. Not on any DAG edge.
+
+    `Channels` is session-level (one row per day per athlete). `AthleteMeta`
+    is athlete-level: one record per `subject_id`, stable across time. Used
+    by split/cohort machinery (evaluation/harness.py) for stratified cohort
+    assignment; never by observation, transitions, filter, forward, or
+    predict.
+    """
+    subject_id: str
+    sex: Literal["F", "M"]
+
+
 class ChannelAssignment(Protocol):
     """Per-family rule mapping data-contract columns to (P, X, E).
 
@@ -150,10 +164,15 @@ def to_channels(
 
 **In-scope**: schema validation against `docs/data_contract.md`; daily
 aggregation (§A6); multi-workout fusion; rest-day marking; the
-`ChannelAssignment` Protocol.
+`ChannelAssignment` Protocol; per-athlete invariant metadata
+(`AthleteMeta`) as a sibling container to `Channels`.
 
 **Out-of-scope**: any modeling; any use of `Z`; any derivation beyond
-typing and daily alignment; estimator-specific feature engineering.
+typing and daily alignment; estimator-specific feature engineering;
+computed summaries over `Channels` (e.g., training volume) — those are
+computed by the caller that consumes `AthleteMeta` (e.g.,
+`evaluation/harness.py` at cohort-assignment time), not cached on
+`AthleteMeta`.
 
 **Depends on**: `numpy`, `pandas`, `docs/data_contract.md`.
 
@@ -474,7 +493,7 @@ inverse at the queried conditions. No new modeling.
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable, Literal, Mapping
-from statepace.channels import Channels, Z, X, Array
+from statepace.channels import AthleteMeta, Channels, Z, X, Array
 from statepace.filter import StateEstimator
 from statepace.observation import ObservationModel
 from statepace.transitions import WorkoutTransition, RestTransition
@@ -491,8 +510,10 @@ class EvalSplit:
     score_idx: Array  # int, indices into this athlete's Channels.dates
 
 
+# meta is keyed by subject_id matching cohort; supplies stratification inputs (sex, and any derived quantities make_splits itself computes from cohort).
 def make_splits(
     cohort: Mapping[str, Channels],
+    meta: Mapping[str, AthleteMeta],
     warmup_days: int,
 ) -> Iterable[EvalSplit]: ...
 
@@ -639,6 +660,12 @@ channels.
     continue to see per-athlete arrays only — estimators stack or loop
     internally. Pooling belongs to the estimator, not to the model
     components it composes.
+13. **Session vs athlete-level boundary.** `Channels` is per-session
+    (daily). `AthleteMeta` is per-athlete-invariant. No field may migrate
+    across this boundary without a data-contract change. Per-athlete
+    scalars that happen to appear row-replicated in the session table
+    (e.g., `hr_max`) remain session-level in `Channels`; they are not
+    duplicated onto `AthleteMeta`.
 
 ---
 
