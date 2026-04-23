@@ -1,7 +1,7 @@
 # Post-Scaffold Sequencing
 
 **Status:** active
-**Last updated:** 2026-04-22 (M2 complete; next active milestone is M3)
+**Last updated:** 2026-04-22 (M2 complete; M3 deferred under the late-naming principle — no active milestone)
 
 The sequencing plan for work after the modeling-pipeline scaffold. Produces the project's two outputs — state estimation (`Z` trajectory) and next-workout prediction (`X̂`) — under a proper train / test / validation split.
 
@@ -22,7 +22,7 @@ The sequencing plan for work after the modeling-pipeline scaffold. Produces the 
 
 ### Active
 
-**M3 — `evaluation/deconfounding.py`.** Ready to start (no gating decisions). Next milestone.
+None. M3 deferred (see M3 detail below). Next actionable milestones need D6/D7/D8 scoping or M1b real-data availability.
 
 ### Audits landed
 
@@ -54,7 +54,7 @@ M0  ADR 0001 — shared params, per-athlete Z       ✅ done (2d432d5)
 M1a Synthetic fixtures                              ✅ done (9a5e9c2)
 M1b Real-data fixture                               ⏸ gated on D5 (external)
 M2  Split/cohort machinery                          ✅ done (ee3dd76)
-M3  evaluation/deconfounding.py                    ▶ active — ready
+M3  evaluation/deconfounding.py                    ⏸ deferred — concrete `ReferenceTemplate` needs named P/E components (CLAUDE.md: defer naming to M9/M10); scaffold-only landing optional
 M4  ObservationModel (one concrete impl)           ⏸ gated on D6
 M5  WorkoutTransition + RestTransition             ⏸ gated on D7
 M6  StateEstimator (one concrete impl)             ⏸ gated on D8 + M4 + M5
@@ -103,6 +103,8 @@ Implement the train/test/validation split per ADR 0001 + ADR 0002 + ADR 0003. Li
 ### M3 — `evaluation/deconfounding.py`
 
 Reference-template projection per `docs/conventions.md` and architecture_map §3.8. Pure scoring convention. Reference template (`sea level, flat, 5k, noon, 12°C wet-bulb`) is defined in conventions — pulled at evaluation time, not redefined.
+
+**Status:** deferred. Implementing `project_to_reference` concretely requires (i) a working `ObservationModel` (M4, gated on D6) and (ii) concrete P/E component names for the reference values. The late-naming principle (CLAUDE.md Standing Rules) defers (ii) to M9/M10. Scaffold-only landing (`ReferenceTemplate` dataclass + `project_to_reference` signature with `...` body) is possible now but adds no verifiable content until both dependencies resolve.
 
 **Critical files:** `statepace/evaluation/deconfounding.py` (new).
 
