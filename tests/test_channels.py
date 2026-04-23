@@ -4,8 +4,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from statepace.channels import Channels
-from tests.fixtures.synthetic import make_channels
+from statepace.channels import AthleteMeta, Channels
+from tests.fixtures.synthetic import make_athlete_meta, make_channels
 
 T = 10
 REST_IDX = 3
@@ -96,3 +96,18 @@ def test_1d_values_raises():
     kw["P_values"] = np.ones(T, dtype=float)  # (T,) instead of (T, 1)
     with pytest.raises(ValueError, match="P_values"):
         make_channels(**kw)
+
+
+def test_athlete_meta_happy_path():
+    m = make_athlete_meta("athlete_01", "F")
+
+    assert isinstance(m, AthleteMeta)
+    assert m.subject_id == "athlete_01"
+    assert m.sex == "F"
+
+
+def test_athlete_meta_subject_id_matches_channels():
+    ch = make_channels(**_base_kwargs())
+    m = make_athlete_meta("athlete_01", "M")
+
+    assert ch.subject_id == m.subject_id

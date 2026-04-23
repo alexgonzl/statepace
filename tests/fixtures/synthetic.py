@@ -3,10 +3,15 @@ from __future__ import annotations
 
 import numpy as np
 
-from statepace.channels import Array, Channels
+from statepace.channels import Array, AthleteMeta, Channels
 from statepace.channels import E as E_channel
 from statepace.channels import P as P_channel
 from statepace.channels import X as X_channel
+
+
+def make_athlete_meta(subject_id: str, sex: str) -> AthleteMeta:
+    """Assemble a single AthleteMeta. Purely structural."""
+    return AthleteMeta(subject_id=subject_id, sex=sex)
 
 
 def make_channels(

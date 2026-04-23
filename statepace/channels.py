@@ -1,7 +1,7 @@
 """DAG primitives and the single entry point for raw frames (architecture_map §3.1)."""
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Literal, Protocol
 import numpy as np
 import pandas as pd
 
@@ -64,6 +64,20 @@ class Channels:
     P: P
     X: X
     E: E
+
+
+@dataclass(frozen=True)
+class AthleteMeta:
+    """Per-athlete invariant metadata. Not on any DAG edge.
+
+    `Channels` is session-level (one row per day per athlete). `AthleteMeta`
+    is athlete-level: one record per `subject_id`, stable across time. Used
+    by split/cohort machinery (evaluation/harness.py) for stratified cohort
+    assignment; never by observation, transitions, filter, forward, or
+    predict.
+    """
+    subject_id: str
+    sex: Literal["F", "M"]
 
 
 class ChannelAssignment(Protocol):
