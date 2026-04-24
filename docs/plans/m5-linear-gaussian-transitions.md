@@ -1,7 +1,7 @@
 # M5 — Linear-Gaussian transitions
 
 **Status:** active
-**Last updated:** 2026-04-24
+**Last updated:** 2026-04-24 (W1+W2 landed; W3 active)
 
 Sequencing plan for M5 — first reference `WorkoutTransition` + `RestTransition` pair, covering the four workstreams identified after three rounds of expert audit on the proposed linear-Gaussian framing. Scoped within the broader sequencing at `post-scaffold-sequencing.md`.
 
@@ -11,11 +11,13 @@ Sequencing plan for M5 — first reference `WorkoutTransition` + `RestTransition
 
 ### Completed
 
-None yet.
+| # | Workstream | Commit | Notes |
+|---|---|---|---|
+| W1+W2 | M4 spec + impl: `d_Z` demoted to hyperparameter | `d868d03` | `RiegelScoreHRStep` takes `d_Z` at construction; `fit` validates shape; tests pass `d_Z=4` explicitly. 24/24. |
 
 ### Active
 
-W1 — M4 spec amendment: `d_Z` demoted to hyperparameter.
+W3 — M5 spec draft: `linear-gaussian`.
 
 ### Audits landed
 
@@ -39,9 +41,9 @@ W1 — M4 spec amendment: `d_Z` demoted to hyperparameter.
 ## Milestones
 
 ```
-W1  M4 spec amendment: d_Z demoted to hyperparameter       ⏸ active
-W2  M4 impl update: d_Z as constructor argument             ⏸ gated on W1 (commits together)
-W3  M5 spec draft: linear-gaussian reference impl           ⏸ gated on W2
+W1  M4 spec amendment: d_Z demoted to hyperparameter       ✅ done (d868d03)
+W2  M4 impl update: d_Z as constructor argument             ✅ done (d868d03)
+W3  M5 spec draft: linear-gaussian reference impl           ⏸ active
 W4  M5 impl + tests: LinearGaussian class(es)               ⏸ gated on W3
 ```
 
