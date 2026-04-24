@@ -15,6 +15,7 @@ docs/
 ├── identifiability_baseline.md        ← prose: minimal-model identifiability audit
 ├── decisions/                         ← ADRs via `modeling-decision-record` skill (created on first use)
 ├── plans/                             ← sequencing plans; live-maintained per `plans/README.md`
+├── reference_impls/                   ← one spec per reference implementation; governed by `reference_impls/README.md`
 ├── theoretical_framework_dag.{png,svg}   ← canonical framework figure (top-level)
 ├── scripts/                           ← render sources (executable .py)
 │   ├── make_dag.py                       → writes ../theoretical_framework_dag.{png,svg}
