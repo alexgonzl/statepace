@@ -1,7 +1,7 @@
 # Post-Scaffold Sequencing
 
 **Status:** active
-**Last updated:** 2026-04-24 (M4 closed; M5 active. `run_sweep` body deferred to land with `run_evaluation` at M6.)
+**Last updated:** 2026-04-24 (M5 closed; M6 next. `run_sweep` body + `run_evaluation` body land at M6.)
 
 The sequencing plan for work after the modeling-pipeline scaffold. Produces the project's two outputs — state estimation (`Z` trajectory) and next-workout prediction (`X̂`) — under a proper train / test / validation split.
 
@@ -31,7 +31,7 @@ The sequencing plan for work after the modeling-pipeline scaffold. Produces the 
 
 ### Active
 
-M5 — first reference `WorkoutTransition` + `RestTransition`. `f` consumes `π_stim(X_t)` from the observation impl (5-component load vector: `hr_load, step_load, total_elevation_gain, total_elevation_lost, heat_exposure`); `g` is rest-day dynamics bounded by `max_consecutive_rest_days`. Needs its own reference-impl spec.
+M6 — first reference `StateEstimator`. Gated on M4 + M5 (both landed). Also lands `run_sweep` body and `run_evaluation` body, which were deferred from M4 Track B. Requires posterior-covariance handoff (not plug-in mean); `π_stim`-rank diagnostic and `cov(ν̂, ε̂)` as acceptance gates; within-cohort-half diagnostic (ADR 0002 follow-up).
 
 ### Audits landed
 
@@ -65,7 +65,7 @@ M1b Real-data fixture                               ⏸ gated on D5 (external)
 M2  Split/cohort machinery                          ✅ done (ee3dd76)
 M3  evaluation/deconfounding.py                    ⏸ deferred — concrete `ReferenceTemplate` needs named P/E components (CLAUDE.md: defer naming to M9/M10); scaffold-only landing optional
 M4  ObservationModel (one concrete impl)           ✅ done (spec 66d28d8, fixture 0f1f3f6, impl eef28a9; `run_sweep` body deferred to M6)
-M5  WorkoutTransition + RestTransition             ⏸ active — needs reference-impl spec
+M5  WorkoutTransition + RestTransition             ✅ done (linear-gaussian spec efd0ad6, impl + fixture + tests 9c83393); plan: `docs/plans/m5-linear-gaussian-transitions.md`
 M6  StateEstimator (one concrete impl)             ⏸ gated on M4 + M5; `run_sweep` body + `run_evaluation` body land here
 M7  forward.py + predict.py (glue)                 ⏸ gated on M5
 M8  evaluation/metrics.py + harness wiring         ⏸ gated on M4–M7 + D10
