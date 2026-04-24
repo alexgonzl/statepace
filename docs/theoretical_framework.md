@@ -79,7 +79,7 @@ The `X_t → Z_t` arrow distinguishes this framework from a conventional hidden-
 
 (b) **No counterfactual state trajectory without counterfactual workouts.** Fitter-yesterday generates a different `X_t` (both because of direct `Z_{t-1} → X_t` and because of selection-driven `P_t`), which generates a different `Z_t`. `Z_{t-1}` and `X_t` are not independently manipulable on the `Z_t` transition.
 
-(c) **Training load emerges, not assumed.** Load proxies (TRIMP, TSS, ACWR) are compressions of `X_t` (or of `(P_t, X_t)` jointly). The full execution is the stimulus; any scalar load is a lossy projection.
+(c) **`X_t` is a trajectory; edges read distinct functionals of it.** `X_t` is the within-session execution trajectory (one node, per Pearl SCM semantics — ADR 0005). The observation edge reads a functional `π_obs(X_t)` entering `p(X_t | Z_{t-1}, P_t, E_t)`; the transition edge reads a (typically different) functional `π_stim(X_t)` entering `f(Z_{t-1}, X_t)`. Both are per-family assignments declared by each reference implementation. Scalar load proxies (TRIMP, TSS, ACWR) are one admissible choice for `π_stim`, not a separate node.
 
 (d) **Identifiability requires temporal variation in `X_t`.** Constant workouts make the `X_t → Z_t` edge unobservable. Variation in `P_t` (driven partly by `Z_{t-1}`, partly by exogenous scheduling) is a principal source of variation in `X_t`.
 
@@ -175,7 +175,7 @@ This section is accounting, not an additional assumption.
 ### A1. Observation splits into session shape `P_t` and execution `X_t`; both observed
 - **Claim**: The observable side of a workout factors into `P_t` (what the athlete set out to do) and `X_t` (what the body produced during execution). Both are observed.
 - **Consequence**: `P_t` is an observed mediator of `Z_{t-1}`'s effect on `X_t`. Conditioning on `P_t` cleanly separates the direct `Z_{t-1} → X_t` effect from the `Z_{t-1} → P_t → X_t` mediated effect.
-- **Accepted cost**: the split of concrete signals between `P_t` and `X_t` is a per-family assignment; ambiguous channels must be adjudicated by the family's observation model. Misassignment (treating an execution signal as part of `P_t` or vice versa) contaminates the direct/indirect decomposition.
+- **Accepted cost**: the split of concrete signals between `P_t` and `X_t` is a per-family assignment; ambiguous channels must be adjudicated by the family's observation model. Misassignment (treating an execution signal as part of `P_t` or vice versa) contaminates the direct/indirect decomposition. Per ADR 0005, channel assignment for `X_t` also includes choice of functional per edge (`π_obs` for observation, `π_stim` for transition); misassignment of components between the two contaminates the observation-vs-transition decomposition.
 - **Relied on in**: §2 edges; §4 duality (e); §5 mediator note; §7 prediction conditioning.
 
 ### A2. `E_t` is exogenous
