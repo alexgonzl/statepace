@@ -49,7 +49,7 @@ Whole-session aggregates, raw (no P-residualization — the stimulus *is* the re
 
 - **Likelihood:** Gaussian, `p(X̃ | Z, P, E) = N(μ(Z, P, E), Σ)`, with full covariance `Σ` across all X components. `X̃` is the pre-transformed X (below).
 - **Mean function:** linear in `(Z, P, E)`, no interactions: `μ = A·Z + B·P + C·E + d`.
-- **d_Z:** 4.
+- **d_Z:** hyperparameter surfaced by name. Set at construction time; not fixed by the spec. The sweep harness varies it end-to-end across bundles.
 - **Pre-transforms (`X → X̃`):**
   - `heat_exposure → log(1 + heat_exposure)` — handles zero mass from cool-weather sessions.
   - `total_elevation_gain → log(1 + total_elevation_gain)` — handles zero mass on flat sessions and right skew.
@@ -81,3 +81,4 @@ No missingness handling in `π_obs`. A session qualifies as an observation-contr
 - HR drift confounded by within-effort non-stationarity: the simple-form drift (2nd-half − 1st-half mean HR) assumes the effort was approximately steady-state. Progressive efforts (intentional build), negative-split efforts (faster 2nd half), and rolling-terrain efforts (pace varies with grade) all produce 2nd-half HR differences for reasons other than cardiac drift.
 - Riegel curve drifts across the year: the per-athlete curve is fit once on the train window and used as the denominator for `best_effort_riegel_speed_score` throughout test and validation. If the athlete's Riegel exponent or intercept drifts materially (fitness change, periodization regime, injury-recovery), test-window speed scores are biased against a stale curve. Low concern for this reference impl given the 60-day test window and train-window cohort stability assumptions (ADR 0004).
 - Equal-row weighting biases the shared-parameter fit toward high-volume athletes: `fit` treats every row equally, so athletes with more observation-contributing sessions dominate the cohort loss. A rebalanced fit (e.g., equal per-athlete total weight) would require a `weights` argument on the `ObservationModel` Protocol — a decision deferred to the estimator reference impl at M6.
+- Sweep-optimal `d_Z` does not certify physiological interpretability of `Z` dimensions: the end-to-end sweep picks the `d_Z` that minimizes held-out prediction residuals, which is orthogonal to whether each dimension carries a distinct, named physiological load. Interpretability is a separate diagnostic, not a score-selected property.

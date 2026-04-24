@@ -82,7 +82,7 @@ def test_fit_parameter_shapes():
     """fit() produces A(10,4), B(10,6), C(10,1), d(10,), Σ(10,10) symmetric PSD."""
     cohort = _make_cohort()
     z_prev, p, x, e = _concat_channels(cohort)
-    model = RiegelScoreHRStep().fit(z_prev, p, x, e)
+    model = RiegelScoreHRStep(d_Z=4).fit(z_prev, p, x, e)
 
     assert model.A.shape == (10, 4), f"A shape {model.A.shape}"
     assert model.B.shape == (10, 6), f"B shape {model.B.shape}"
@@ -106,7 +106,7 @@ def test_forward_roundtrip():
     """forward() returns X with correct shape and names. Does not test values == training X."""
     cohort = _make_cohort()
     z_prev, p, x, e = _concat_channels(cohort)
-    model = RiegelScoreHRStep().fit(z_prev, p, x, e)
+    model = RiegelScoreHRStep(d_Z=4).fit(z_prev, p, x, e)
 
     x_pred = model.forward(z_prev, p, e)
 
@@ -129,7 +129,7 @@ def test_inverse_recovers_held_out():
     """
     cohort = _make_cohort()
     z_prev, p, x, e = _concat_channels(cohort)
-    model = RiegelScoreHRStep().fit(z_prev, p, x, e)
+    model = RiegelScoreHRStep(d_Z=4).fit(z_prev, p, x, e)
 
     # Find residual std for best_effort_mean_HR on training data.
     from statepace.observation import _transform
@@ -188,7 +188,7 @@ def test_log_prob_shape_and_rest_zero():
     """log_prob() returns shape (T,); rest rows = 0.0; non-rest rows finite."""
     cohort = _make_cohort()
     z_prev, p, x, e = _concat_channels(cohort)
-    model = RiegelScoreHRStep().fit(z_prev, p, x, e)
+    model = RiegelScoreHRStep(d_Z=4).fit(z_prev, p, x, e)
 
     # Use a held-out athlete that was not seen in fit to probe OOS behaviour.
     # Since all athletes are concatenated in fit here, use the last athlete's
@@ -227,8 +227,8 @@ def test_fit_deterministic():
     cohort = _make_cohort()
     z_prev, p, x, e = _concat_channels(cohort)
 
-    model1 = RiegelScoreHRStep().fit(z_prev, p, x, e)
-    model2 = RiegelScoreHRStep().fit(z_prev, p, x, e)
+    model1 = RiegelScoreHRStep(d_Z=4).fit(z_prev, p, x, e)
+    model2 = RiegelScoreHRStep(d_Z=4).fit(z_prev, p, x, e)
 
     np.testing.assert_array_equal(model1.A, model2.A)
     np.testing.assert_array_equal(model1.B, model2.B)

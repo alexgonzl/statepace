@@ -156,14 +156,13 @@ class RiegelScoreHRStep:
         AttributeError on a None dereference.
     """
 
-    d_Z: int = 4
-
-    def __init__(self) -> None:
-        self.A: Array | None = None   # (d_X, d_Z) = (10, 4)
-        self.B: Array | None = None   # (d_X, d_P) = (10, 6)
-        self.C: Array | None = None   # (d_X, d_E) = (10, 1)
-        self.d: Array | None = None   # (d_X,) = (10,)
-        self.Σ: Array | None = None   # (d_X, d_X) = (10, 10)
+    def __init__(self, d_Z: int) -> None:
+        self.d_Z = d_Z
+        self.A: Array | None = None   # (d_X, d_Z); e.g. (10, 4) at d_Z=4
+        self.B: Array | None = None   # (d_X, d_P); e.g. (10, 6)
+        self.C: Array | None = None   # (d_X, d_E); e.g. (10, 1)
+        self.d: Array | None = None   # (d_X,); e.g. (10,)
+        self.Σ: Array | None = None   # (d_X, d_X); e.g. (10, 10)
         self._x_names: tuple[str, ...] | None = None
 
     def _require_fit(self, method: str) -> None:
@@ -195,6 +194,12 @@ class RiegelScoreHRStep:
         Returns:
             New RiegelScoreHRStep instance with A, B, C, d, Σ populated.
         """
+        if Z_prev.mean.shape[1] != self.d_Z:
+            raise ValueError(
+                f"Z_prev.mean has d_Z={Z_prev.mean.shape[1]}, but "
+                f"RiegelScoreHRStep was constructed with d_Z={self.d_Z}."
+            )
+
         x_tilde_full = _transform(X.values, X.names)
 
         # Non-rest mask: rows where X is observed.
@@ -230,7 +235,7 @@ class RiegelScoreHRStep:
         n_params = Phi.shape[1]
         Sigma = (residuals.T @ residuals) / (N - n_params)  # (d_X, d_X)
 
-        inst = RiegelScoreHRStep()
+        inst = RiegelScoreHRStep(d_Z=self.d_Z)
         inst.A = A
         inst.B = B
         inst.C = C
