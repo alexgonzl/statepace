@@ -12,7 +12,7 @@ Per-athlete cardiorespiratory state estimation from longitudinal run data:
 - **State transitions** `f` (workout), `g` (rest, bounded) → `transitions.py`; inference over Z in `filter.py`
 - **Prediction** = filter → forward → observation at reference conditions → `predict.py`
 
-Current state: scaffold only — package exports constants from `_constants.py`. Planned module layout lives in `docs/architecture_map.md`. Legacy names (`cardiac_cost.py`, `riegel.py`, `state_estimation.py`, etc.) are reference-only; do not import from new modules.
+Current state: first reference impls of `observation.py` (Gaussian-linear Riegel-score + HR/step load) and `transitions.py` (linear-Gaussian `f` + `g`) landed. `filter.py`, `forward.py`, `predict.py` remain scaffold. Public API (`statepace/__init__.py`) unchanged — reference impls are additive and not exported. Planned module layout lives in `docs/architecture_map.md`; concrete reference-impl specs live in `docs/reference_impls/`. Legacy names (`cardiac_cost.py`, `riegel.py`, `state_estimation.py`, etc.) are reference-only; do not import from new modules.
 
 ---
 
@@ -35,6 +35,7 @@ python -c "import statepace; print(len(statepace.__all__), 'exports')"
 | `docs/conventions.md` | For cross-cutting conventions (warm-up, bounds, deconfounding template) |
 | `docs/decisions/` | Before revisiting a prior modeling decision — check if an ADR already settled it |
 | `docs/plans/` | For the current state of in-flight sequencing work — completed milestones, active milestone, open decisions, recent audits |
+| `docs/reference_impls/` | For the concrete reference-impl specs (what each reference implementation commits to and why) |
 | `README.md` | For layout + setup |
 
 ---
