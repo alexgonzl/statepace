@@ -11,7 +11,8 @@ tests/
 ├── conftest.py             ← pytest fixtures (only when justified; see rules)
 └── fixtures/
     ├── __init__.py         ← package marker; keep empty
-    └── <purpose>.py        ← plain factory functions (e.g. synthetic.py)
+    ├── <purpose>.py        ← plain factory functions (e.g. synthetic.py)
+    └── reference_impls/    ← spec-scoped fixtures; governed by `reference_impls/README.md`
 ```
 
 ## Rules
@@ -30,6 +31,7 @@ tests/
 | Test for `statepace/foo.py` | `tests/test_foo.py` |
 | Test for `statepace/pkg/bar.py` | `tests/test_pkg_bar.py` |
 | Factory function (synthetic `Channels`, synthetic `Prior`, etc.) | `tests/fixtures/<purpose>.py` |
+| Spec-scoped fixture for a reference impl | `tests/fixtures/reference_impls/<slug>.py` |
 | pytest-specific fixture wrapping a factory | `tests/conftest.py` |
 | Integration test spanning multiple modules | `tests/test_integration_<scope>.py` |
 
