@@ -19,9 +19,11 @@ Reference-impl scope. Does not commit the project to a channel assignment (CLAUD
 
 ## Functionals (per ADR 0005)
 
+All X components are pre-extracted by the upstream data pipeline; this reference impl is a model, not an extractor. The extraction rules below specify what the pipeline produces, not what the impl computes.
+
 ### `π_obs(X_t)` — observation projection
 
-Best-effort extraction over the within-session trajectory. A "valid effort" is a continuous running segment of distance `d ∈ [d_min, d_max]`; the best effort is the segment whose observed mean speed most exceeds the athlete's Riegel-predicted speed at that segment's distance (i.e., maximizing `observed_speed / riegel_speed(d)`). `d_min` and `d_max` are hyperparameters surfaced by name, not fixed here. A session qualifies as observation-contributing iff it contains at least one continuous segment of length `≥ d_min`; QA filtering of the upstream session stream is assumed. Sessions with no valid effort do not produce a `π_obs` readout (see Missingness).
+Best-effort extraction (performed upstream) over the within-session trajectory. A "valid effort" is a continuous running segment of distance `d ∈ [d_min, d_max]`; the best effort is the segment whose observed mean speed most exceeds the athlete's Riegel-predicted speed at that segment's distance (i.e., maximizing `observed_speed / riegel_speed(d)`). `d_min` and `d_max` are hyperparameters surfaced by name, not fixed here. A session qualifies as observation-contributing iff it contains at least one continuous segment of length `≥ d_min`; QA filtering of the upstream session stream is assumed. Sessions with no valid effort do not produce a `π_obs` readout (see Missingness).
 
 The Riegel curve is per-athlete, fit on `[0, warmup_days + train_days)` per ADR 0004. Train-period only; no leakage from test or validation windows. Per ADR 0004, warm-up days are included in the Riegel fit (warm-up exclusion is an A8 concern for the state estimator, not for static curve fitting).
 
