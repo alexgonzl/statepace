@@ -1,7 +1,7 @@
 # M5 — Linear-Gaussian transitions
 
 **Status:** active
-**Last updated:** 2026-04-24 (W1+W2 landed; W3 active)
+**Last updated:** 2026-04-24 (W1+W2+W3 landed; W4 active)
 
 Sequencing plan for M5 — first reference `WorkoutTransition` + `RestTransition` pair, covering the four workstreams identified after three rounds of expert audit on the proposed linear-Gaussian framing. Scoped within the broader sequencing at `post-scaffold-sequencing.md`.
 
@@ -14,10 +14,11 @@ Sequencing plan for M5 — first reference `WorkoutTransition` + `RestTransition
 | # | Workstream | Commit | Notes |
 |---|---|---|---|
 | W1+W2 | M4 spec + impl: `d_Z` demoted to hyperparameter | `d868d03` | `RiegelScoreHRStep` takes `d_Z` at construction; `fit` validates shape; tests pass `d_Z=4` explicitly. 24/24. |
+| W3 | M5 spec: `linear-gaussian` reference impl | `efd0ad6` | `f` linear-Gaussian on `(Z_prev, π_stim)`; `g` stationary recovery with `H^n` derived drift + accumulated noise. `H = I − A`, `A` symmetric with `0 < λ(A) ≤ 1`. Four audit-fix rounds by identifiability-auditor. |
 
 ### Active
 
-W3 — M5 spec draft: `linear-gaussian`.
+W4 — M5 impl + tests: `LinearGaussian` class(es).
 
 ### Audits landed
 
@@ -25,6 +26,7 @@ W3 — M5 spec draft: `linear-gaussian`.
 - **identifiability-auditor** (2026-04-24): partially identified. Unanimous asks: spectral-radius constraint on `H`; `r(n)` and `Q_rest(n)` derived from `H`; `H^n` form identifies `H` from n=1 data, n≥2 as mis-specification check. Flagged `π_stim` effective rank <5 as needing cohort-level rank reduction (deferred: kept as invalidation rather than pre-fit commitment).
 - **master-statistician** (2026-04-24): derived-form `r(n)`/`Q_rest(n)`/`H` via discrete Lyapunov; `ρ(H) < 1` constraint; `d_Z` under-parameterization explicit; M6 estimator must pass posterior covariance (not plug-in mean) through EM.
 - **identifiability-auditor plan-audit** (2026-04-24): plan faithful to the three audits after three fixes — M6 posterior-covariance commitment moved out of M5 coherence into deferred-to-M6 section, rest-bound-boundary residual bullet added, `π_stim` rank diagnostic elevated to M6 acceptance criterion.
+- **identifiability-auditor spec-audit of `linear-gaussian`** (2026-04-24): spec ready after four fixes — `## Functionals` section dropped (transition impls do not declare one per governance), `A` tightened from PSD to symmetric with `0 < λ(A) ≤ 1` (strict decay, no oscillations), free vs derived parameters made explicit, n=1 identification commitment added.
 
 ---
 
@@ -43,8 +45,8 @@ W3 — M5 spec draft: `linear-gaussian`.
 ```
 W1  M4 spec amendment: d_Z demoted to hyperparameter       ✅ done (d868d03)
 W2  M4 impl update: d_Z as constructor argument             ✅ done (d868d03)
-W3  M5 spec draft: linear-gaussian reference impl           ⏸ active
-W4  M5 impl + tests: LinearGaussian class(es)               ⏸ gated on W3
+W3  M5 spec draft: linear-gaussian reference impl           ✅ done (efd0ad6)
+W4  M5 impl + tests: LinearGaussian class(es)               ⏸ active
 ```
 
 ### W1 detail — M4 spec amendment
