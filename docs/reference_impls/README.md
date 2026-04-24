@@ -5,7 +5,8 @@ One markdown file per reference implementation of a Protocol in `statepace/`. A 
 ```
 docs/reference_impls/
 ├── README.md                  ← this file
-└── <slug>.md                  ← one spec per reference impl
+├── <slug>.md                  ← one spec per reference impl
+└── <slug>-retrospective.md    ← optional: opportunistic post-impl notes (assumptions, next-iter priorities)
 ```
 
 ## What belongs here
@@ -38,3 +39,7 @@ File slug is the impl's short name, lowercased with hyphens. Choose a slug that 
 ## Relationship to ADRs
 
 A reference-impl spec is not an ADR. Specs describe *what is being built*; ADRs record *decisions that affect the framework or cross-cut multiple impls*. If a spec needs to take a decision that will outlive its own impl (e.g., channel-assignment commitment, framework-level semantics), that decision spins out into a separate ADR and the spec links to it.
+
+## Retrospectives
+
+Optional sibling file `<slug>-retrospective.md` documents assumptions the impl committed to and ranked priorities for the next-iteration reference impl. Retrospectives are **not revision triggers for the current impl** — they're opportunistic documentation. Ranking criterion: likelihood-of-biting-in-practice × cost-to-fix-in-next-iter.
