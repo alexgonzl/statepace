@@ -1,7 +1,7 @@
 # Post-Scaffold Sequencing
 
 **Status:** active
-**Last updated:** 2026-04-23 (Track B: `RiegelScoreHRStep` reference impl landed; `run_sweep` body remains)
+**Last updated:** 2026-04-24 (M4 closed; M5 active. `run_sweep` body deferred to land with `run_evaluation` at M6.)
 
 The sequencing plan for work after the modeling-pipeline scaffold. Produces the project's two outputs — state estimation (`Z` trajectory) and next-workout prediction (`X̂`) — under a proper train / test / validation split.
 
@@ -31,7 +31,7 @@ The sequencing plan for work after the modeling-pipeline scaffold. Produces the 
 
 ### Active
 
-M4 Track B remaining work: `run_sweep` body in `statepace/evaluation/harness.py` with duplicate-label check. `RiegelScoreHRStep` reference impl landed (`eef28a9`).
+M5 — first reference `WorkoutTransition` + `RestTransition`. `f` consumes `π_stim(X_t)` from the observation impl (5-component load vector: `hr_load, step_load, total_elevation_gain, total_elevation_lost, heat_exposure`); `g` is rest-day dynamics bounded by `max_consecutive_rest_days`. Needs its own reference-impl spec.
 
 ### Audits landed
 
@@ -64,9 +64,9 @@ M1a Synthetic fixtures                              ✅ done (9a5e9c2)
 M1b Real-data fixture                               ⏸ gated on D5 (external)
 M2  Split/cohort machinery                          ✅ done (ee3dd76)
 M3  evaluation/deconfounding.py                    ⏸ deferred — concrete `ReferenceTemplate` needs named P/E components (CLAUDE.md: defer naming to M9/M10); scaffold-only landing optional
-M4  ObservationModel (one concrete impl)           ⏸ gated on D6
-M5  WorkoutTransition + RestTransition             ⏸ gated on D7
-M6  StateEstimator (one concrete impl)             ⏸ gated on D8 + M4 + M5
+M4  ObservationModel (one concrete impl)           ✅ done (spec 66d28d8, fixture 0f1f3f6, impl eef28a9; `run_sweep` body deferred to M6)
+M5  WorkoutTransition + RestTransition             ⏸ active — needs reference-impl spec
+M6  StateEstimator (one concrete impl)             ⏸ gated on M4 + M5; `run_sweep` body + `run_evaluation` body land here
 M7  forward.py + predict.py (glue)                 ⏸ gated on M5
 M8  evaluation/metrics.py + harness wiring         ⏸ gated on M4–M7 + D10
 M9  End-to-end run on synthetic                    ⏸ gated on M8
