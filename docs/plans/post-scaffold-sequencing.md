@@ -1,7 +1,7 @@
 # Post-Scaffold Sequencing
 
 **Status:** active
-**Last updated:** 2026-04-23 (M4 Track A: `make_splits` in-sample train-slot per ADR 0004)
+**Last updated:** 2026-04-23 (ADR 0005: single-`X_t` affirmed; §4(c) rewritten; Track B unblocked)
 
 The sequencing plan for work after the modeling-pipeline scaffold. Produces the project's two outputs — state estimation (`Z` trajectory) and next-workout prediction (`X̂`) — under a proper train / test / validation split.
 
@@ -22,6 +22,7 @@ The sequencing plan for work after the modeling-pipeline scaffold. Produces the 
 | — | Sweep-harness signatures (`FormsBundle`, `run_sweep`, `SweepResult`) | `cb81648`, `d7dc83e` | Signature-only landing in `statepace/evaluation/harness.py` and `docs/architecture_map.md` §3.7. Reframes D6/D7/D8 from "pick one form" to "sweep across forms." Body lands at M4 alongside the first reference `ObservationModel`. 19/19 suite-wide (unchanged). |
 | — | ADR 0004 — prediction metric + τ-horizons (D10) | `ba6f832` | Two residual streams (raw + reference), five stats each, per-subject aggregation, three-way cohort reporting. Top-speed subset gated by per-athlete Riegel fit over `[0, warmup_days + train_days)`. Exports follow-ups to M4 (`make_splits` in-sample split) and M8 (`project_to_reference` body). |
 | M4 Track A | `make_splits` in-sample train-slot | `3a47ca0` | Training-cohort athletes emit two `EvalSplit`s (`"train"` with `score_idx = [warmup_days, warmup_days + train_days)` and `"test"` with the post-train window); validation-cohort athletes emit one `"validation"` split. N=50 synthetic cohort (seed=0): 94 splits (44+44+6). 19/19 suite-wide. |
+| — | ADR 0005 — `X_t` single-node + functionals | `5bf4e68` | Arbitrated outcome of Track B framework challenge: node-hood = independent intervenability (Pearl SCM); functionals `π_obs`/`π_stim` are per-family. §4(c) rewritten; A1 extended. Reference-impl specs must name both functionals. |
 
 ### Active
 
@@ -121,7 +122,11 @@ Also lands at M4 per ADR 0004: `make_splits` emits an additional in-sample `Eval
 
 **Critical files:** `statepace/observation.py` (first reference impl), `statepace/evaluation/harness.py` (`run_sweep` body, duplicate-label check, `make_splits` in-sample split).
 
-**Track A landed** (`3a47ca0`): `make_splits` in-sample split. Training-cohort athletes emit two splits (`"train"` + `"test"`); validation-cohort emit one (`"validation"`). Remaining Track B work: reference `ObservationModel` + ADR + `run_sweep` body + duplicate-label check.
+**Track A landed** (`3a47ca0`): `make_splits` in-sample split. Training-cohort athletes emit two splits (`"train"` + `"test"`); validation-cohort emit one (`"validation"`).
+
+**Track B scoping surfaced a framework question** that landed as ADR 0005 (`5bf4e68`): single-`X_t` node with per-edge functionals `π_obs` / `π_stim`. Reference impl now specifies both functionals as part of its spec.
+
+Remaining Track B work: reference `ObservationModel` spec (`docs/reference_impls/`, incl. `π_obs` and `π_stim`) + implementation + `run_sweep` body + duplicate-label check.
 
 ### M5 — First reference `WorkoutTransition` + `RestTransition`
 
