@@ -1,7 +1,7 @@
 # Post-Scaffold Sequencing
 
 **Status:** active
-**Last updated:** 2026-04-23 (Track B: `riegel-score-hrstep` spec drafted)
+**Last updated:** 2026-04-23 (Track B: `RiegelScoreHRStep` reference impl landed; `run_sweep` body remains)
 
 The sequencing plan for work after the modeling-pipeline scaffold. Produces the project's two outputs — state estimation (`Z` trajectory) and next-workout prediction (`X̂`) — under a proper train / test / validation split.
 
@@ -24,11 +24,14 @@ The sequencing plan for work after the modeling-pipeline scaffold. Produces the 
 | M4 Track A | `make_splits` in-sample train-slot | `3a47ca0` | Training-cohort athletes emit two `EvalSplit`s (`"train"` with `score_idx = [warmup_days, warmup_days + train_days)` and `"test"` with the post-train window); validation-cohort athletes emit one `"validation"` split. N=50 synthetic cohort (seed=0): 94 splits (44+44+6). 19/19 suite-wide. |
 | — | ADR 0005 — `X_t` single-node + functionals | `5bf4e68` | Arbitrated outcome of Track B framework challenge: node-hood = independent intervenability (Pearl SCM); functionals `π_obs`/`π_stim` are per-family. §4(c) rewritten; A1 extended. Reference-impl specs must name both functionals. |
 | — | `docs/reference_impls/` seeded | `2397796` | Governance README lands ahead of the first spec. |
-| M4 Track B spec | `riegel-score-hrstep` (draft) | `66d28d8` | First reference `ObservationModel` spec. `π_obs` = best-effort-by-Riegel-relative-speed (5 components); `π_stim` = 5 whole-session load aggregates. Gaussian family, linear mean, `d_Z = 4`. Three rounds of expert audit recorded in-spec. Next: focused-engineer implementation. |
+| M4 Track B spec | `riegel-score-hrstep` (draft) | `66d28d8` | First reference `ObservationModel` spec. `π_obs` = best-effort-by-Riegel-relative-speed (5 components); `π_stim` = 5 whole-session load aggregates. Gaussian family, linear mean, `d_Z = 4`. Three rounds of expert audit recorded in-spec. |
+| — | `tests/fixtures/reference_impls/` seeded | `01937af` | Governance README; mirrors `docs/reference_impls/` pattern. |
+| — | Fixture factory for `riegel-score-hrstep` | `0f1f3f6` | `make_riegel_hrstep_cohort(n_athletes, n_days, seed)` — spec-exact 10-component X, 6-component P, 1-component E; ~20% rest days. |
+| M4 Track B impl | `RiegelScoreHRStep` ObservationModel | `eef28a9` | Gaussian OLS on transformed X̃; closed-form `fit`/`forward`/`inverse`/`log_prob`. 5 new tests against the fixture. 24/24 suite-wide. |
 
 ### Active
 
-M4 Track B: first reference `ObservationModel` + `run_sweep` body. Track A landed (`3a47ca0`); Track B is the remaining M4 work and carries its own ADR.
+M4 Track B remaining work: `run_sweep` body in `statepace/evaluation/harness.py` with duplicate-label check. `RiegelScoreHRStep` reference impl landed (`eef28a9`).
 
 ### Audits landed
 
