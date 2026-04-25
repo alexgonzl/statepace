@@ -539,14 +539,27 @@ inverse at the queried conditions. No new modeling.
 
 ### 3.7 `evaluation/harness.py`
 
+M6 widening (ADR 0006): `EvalResult.Z_hat` is now `Mapping[str, ZPosterior]`
+(was `Mapping[str, Z]`); the harness retains the full latent posterior so
+downstream metrics can score latent-coverage diagnostics without re-running
+inference. `EvalResult.X_pred` is `Mapping[str, XPredictive]`, a per-day
+observation-space predictive *distribution* (mean + samples) populated by
+the harness using only Protocol-level operations: `observation.forward` at
+the posterior mean for the point prediction, and `observation.forward`
+applied to draws from `ZPosterior.sample(n)` for the sample-based
+distribution. Sample-based representation is family-agnostic — it
+composes with any `ZPosterior` subclass (Gaussian, sample-based, mixture)
+and any `ObservationModel` without harness changes. Choice of interval /
+coverage summary is metric-side (M8).
+
 ```python
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable, Literal, Mapping, Sequence
-from statepace.channels import AthleteMeta, Channels, Z, X, Array
-from statepace.filter import StateEstimator, Prior
+from statepace.channels import AthleteMeta, Channels, X, Array
+from statepace.filter import Prior, StateEstimator, ZPosterior
 from statepace.observation import ObservationModel
-from statepace.transitions import WorkoutTransition, RestTransition
+from statepace.transitions import RestTransition, WorkoutTransition
 
 Cohort = Literal["train", "test", "validation"]
 
@@ -602,10 +615,23 @@ def run_evaluation(
 
 
 @dataclass(frozen=True)
+class XPredictive:
+    """Per-day observation-space predictive distribution summary on score_idx.
+
+    Mean: observation.forward at posterior-mean Z. Samples: observation.forward
+    pushed through ZPosterior.sample draws. Family-agnostic; uses only
+    Protocol-level operations.
+    """
+    mean: X                   # raw-X conditional mean; rest rows NaN, is_rest=True
+    samples: Array            # (n_samples, T_score, d_X), raw-X; rest rows NaN
+    n_samples: int
+
+
+@dataclass(frozen=True)
 class EvalResult:
-    Z_hat: Mapping[str, Z]                  # keyed by subject_id; estimator output on score_idx
-    X_pred: Mapping[str, X]                 # keyed by subject_id; one-step observation predictions on score_idx
-    cohort: Mapping[str, Cohort]            # subject_id -> cohort label
+    Z_hat: Mapping[str, ZPosterior]             # full latent posterior on score_idx (M6 widening)
+    X_pred: Mapping[str, XPredictive]           # observation-space predictive (mean + samples) on score_idx
+    cohort: Mapping[str, Cohort]                # subject_id -> cohort label
     rest_bound_violations: Mapping[str, Array]  # keyed by subject_id; bool, shape (T,), flags A5 overruns
 
 

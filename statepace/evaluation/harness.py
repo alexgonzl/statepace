@@ -7,10 +7,10 @@ from typing import Iterable, Literal, Mapping, Sequence
 
 import numpy as np
 
-from statepace.channels import AthleteMeta, Channels, Z, X, Array
-from statepace.filter import StateEstimator, Prior
+from statepace.channels import AthleteMeta, Channels, X, Array
+from statepace.filter import Prior, StateEstimator, ZPosterior
 from statepace.observation import ObservationModel
-from statepace.transitions import WorkoutTransition, RestTransition
+from statepace.transitions import RestTransition, WorkoutTransition
 
 Cohort = Literal["train", "test", "validation"]
 
@@ -206,11 +206,64 @@ def run_evaluation(
 
 
 @dataclass(frozen=True)
+class XPredictive:
+    """Per-day observation-space predictive distribution summary on score_idx.
+
+    Carries both a point prediction (`mean`, raw-X space) and a sample-based
+    representation of the predictive distribution (`samples`). The harness
+    populates both using only Protocol-level operations on `ObservationModel`
+    and `ZPosterior`:
+
+    - `mean` is `observation.forward(Z_prev=posterior_mean, P_score, E_score)`.
+    - `samples` are produced by drawing `n_samples` latent trajectories from
+      `ZPosterior.sample(n_samples, rng)`, then pushing each through
+      `observation.forward` at the score-window's `(P_score, E_score)`. This
+      is family-agnostic: any `ZPosterior` subclass (Gaussian, sample-based,
+      mixture) and any `ObservationModel` (linear-Gaussian, non-linear,
+      heavy-tailed) compose without harness changes.
+
+    Downstream callers (M7 `predict.py`, M8 `evaluation/metrics.py`) compute
+    point residuals from `mean` and prediction intervals / coverage from
+    `samples`. The harness does not pre-summarize `samples` into intervals
+    because the choice of summary (quantile bands, HDR, per-component
+    covariance) is metric-side.
+
+    Attributes:
+        mean: `X` carrying conditional-mean predictions over score_idx in
+            raw observation space; `is_rest` mirrors the score-window's
+            rest mask (the harness predicts on workout days only and sets
+            rest rows to NaN with `is_rest=True`).
+        samples: shape (n_samples, T_score, d_X) in raw observation space.
+            Rows aligned with `mean.values`. Rest rows are NaN across all
+            samples.
+        n_samples: number of trajectories drawn from `ZPosterior.sample`.
+            Recorded so consumers can detect under-sampling.
+    """
+    mean: X
+    samples: Array
+    n_samples: int
+
+
+@dataclass(frozen=True)
 class EvalResult:
-    Z_hat: Mapping[str, Z]                      # keyed by subject_id; estimator output on score_idx
-    X_pred: Mapping[str, X]                     # keyed by subject_id; one-step observation predictions on score_idx
-    cohort: Mapping[str, Cohort]                # subject_id -> cohort label
-    rest_bound_violations: Mapping[str, Array]  # keyed by subject_id; bool, shape (T,), flags A5 overruns
+    """Per-athlete evaluation outputs over a single estimator/observation wiring.
+
+    Attributes:
+        Z_hat: subject_id -> `ZPosterior` (latent posterior over score_idx;
+            mean + covariance + dates). The full posterior is retained so
+            M8 calibration diagnostics can score latent-coverage without
+            re-running inference.
+        X_pred: subject_id -> `XPredictive` (observation-space predictive
+            distribution summary on score_idx; mean + samples).
+        cohort: subject_id -> cohort label ("train", "test", "validation").
+        rest_bound_violations: subject_id -> bool array of shape (T,);
+            True at score_idx rows where the consecutive-rest count exceeded
+            `RestTransition.max_consecutive_rest_days` (A5 overrun).
+    """
+    Z_hat: Mapping[str, ZPosterior]
+    X_pred: Mapping[str, XPredictive]
+    cohort: Mapping[str, Cohort]
+    rest_bound_violations: Mapping[str, Array]
 
 
 @dataclass(frozen=True)
