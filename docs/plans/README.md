@@ -45,6 +45,7 @@ Every plan file has these sections (in order):
 - **When a decision resolves:** flip the status in the Open decisions table.
 - **When scope drifts:** update Out of scope explicitly before the drift lands in code.
 - **Plan edits are their own commits** — small, named, tied to the milestone they record. Do not bundle plan updates with unrelated work.
+- **Audit-round budget per planning step: cap at three rounds.** A "round" is one full pass by an auditor (identifiability, senior-scientist, master-statistician, or other Tier-2 specialist) producing findings the plan must address. Diminishing returns past round three: if the third round still produces structural changes — pivots in family choice, fundamental parameterization shifts, identifiability reframings — the plan is fundamentally wrong and must be redrafted from scratch, not iterated further. Narrow asks (mechanical fixes, framing tweaks, cross-references) do not count against the cap. The PM enforces the cap; auditors do not self-cap.
 
 ## Retirement
 
