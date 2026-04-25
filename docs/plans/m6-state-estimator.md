@@ -1,6 +1,6 @@
 # M6 — First reference `StateEstimator`
 
-**Status:** active (W4 closed; W5 unblocked)
+**Status:** active (W5 closed; W6 unblocked)
 **Last updated:** 2026-04-24
 
 Sequencing plan for M6 — first reference `StateEstimator` paired with the `riegel-score-hrstep` observation (M4) and `linear-gaussian` transitions (M5). Also lands the two harness bodies deferred from M4: `run_sweep` and `run_evaluation`.
@@ -31,10 +31,11 @@ This estimator is a **constrained-MLE first reference**, not a generic-baseline 
 - **W2** — Spec audit rounds. Audit-clean across identifiability-auditor and senior-scientist (round 8). Commit `a6e7661`.
 - **W3** — M6 ADR (`docs/decisions/0006-m6-joint-mle-kalman-first-state-estimator.md`). Commit `09552b6`.
 - **W4** — M6 impl + tests. `JointMLEKalman` in `statepace/filter.py`; `ZPosterior` sealed ABC + `GaussianZPosterior`; signatures widened in `forward.py` and `predict.py`; `architecture_map.md` updated; 25 new tests; 57 passing total in 88s. Three rounds of architect-driven remediation (env, rest-bound plumbing, NA1 recovery test + fixture rebalance, scope-creep removal). Spec note `W-D-internal-val` closed (commit `a460bc9`). Commit `10e8d12`.
+- **W5** — `run_evaluation` and `run_sweep` bodies + tests. Schema widening (commit `69e1875`): `EvalResult.Z_hat` to `ZPosterior`, new `XPredictive(mean, samples, n_samples)` for sample-based observation-space predictives. Body implementation (commit `e7d3c22`): 8 new harness tests, 65 passing total in 5:23. Architect-driven contract fix: added `StateEstimator.fitted_observation() -> ObservationModel` to the Protocol surface, eliminating the need for the harness to reach into estimator-private state to populate the observation instance for predictives.
 
 ### Active
 
-W5 — `run_sweep` and `run_evaluation` bodies + tests. Mechanical wiring of the harness functions whose bodies have been deferred since M4. `run_evaluation` consumes `ZPosterior` from `infer`; passes posterior mean + covariance to observation forward at score-window days for calibrated prediction intervals. `rest_bound_violations` populated by scanning runs.
+W6 — Acceptance diagnostics. Tier-1 (parameter recovery on K=20 replicate study; posterior coverage calibration; multi-start consistency; validation `μ_0` recovery). Tier-2 family-adequacy diagnostics (`π_stim` effective rank, `cov(ν̂, ε̂)`, within-cohort weak identification, per-athlete vs shared-`θ` pseudo-likelihood ratio for regime-shift, between-athlete equilibrium-variance for cohort-shared-`b` triggering). Parameter-count sanity report. M6 closes on clean Tier-1; Tier-2 numbers populate the close-out findings.
 
 ### Audits landed
 
@@ -112,8 +113,10 @@ W3  M6 ADR: family + init + gauge + constraints           ✅ 09552b6
 W4  M6 impl + tests: differentiable Kalman + SGD          ✅ 10e8d12
     — includes Protocol widening (infer returns ZPosterior)
     — includes scaffold updates to forward.py / predict.py signatures
-W5  run_sweep + run_evaluation bodies + tests             ⏳ active
-W6  Acceptance diagnostics                                 ⏸ gated on W5
+W5  run_sweep + run_evaluation bodies + tests             ✅ e7d3c22
+    — includes EvalResult schema widening + XPredictive (69e1875)
+    — includes StateEstimator.fitted_observation Protocol method
+W6  Acceptance diagnostics                                 ⏳ active
 ```
 
 ---
