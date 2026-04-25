@@ -202,7 +202,161 @@ def run_evaluation(
     rest_transition: RestTransition,
     *,
     prior: Prior | Mapping[str, Prior],
-) -> "EvalResult": ...
+    n_samples: int = 200,
+    rng: np.random.Generator | None = None,
+) -> "EvalResult":
+    """Fit the estimator on the training cohort, run per-athlete inference, and produce EvalResult.
+
+    Steps:
+      1. Fit estimator on training-cohort athletes (those whose split carries cohort=="train").
+      2. For every athlete in the cohort, call estimator.infer to obtain a ZPosterior.
+      3. For each athlete's score window (EvalSplit.score_idx), produce an XPredictive
+         carrying observation-space mean and samples shaped (n_samples, T_score, d_X).
+      4. Populate rest_bound_violations per athlete over the score window.
+      5. Derive the cohort mapping from the EvalSplit objects.
+
+    Args:
+        cohort: per-athlete Channels, keyed by subject_id.
+        splits: iterable of EvalSplit; each carries subject_id, cohort label, fit_idx, score_idx.
+        estimator: StateEstimator to fit and use for inference.
+        observation: ObservationModel for forward predictions.
+        workout_transition: WorkoutTransition (passed to estimator.fit).
+        rest_transition: RestTransition (passed to estimator.fit; provides max_consecutive_rest_days).
+        prior: Prior or per-athlete mapping of Prior; passed to estimator.fit and infer.
+        n_samples: number of latent trajectory samples drawn per athlete for XPredictive.samples.
+        rng: numpy Generator for reproducibility; defaults to default_rng(0).
+
+    Returns:
+        EvalResult with Z_hat, X_pred, cohort, rest_bound_violations populated.
+    """
+    from statepace.channels import Z as Z_channel
+    from statepace.filter import _count_consecutive_rest
+
+    if rng is None:
+        rng = np.random.default_rng(0)
+
+    splits_list = list(splits)
+
+    # Build cohort label mapping and per-subject score_idx from splits.
+    # A subject may appear in multiple splits (train + test). Use the first occurrence
+    # to record the cohort label; score_idx is per-split, handled below.
+    cohort_labels: dict[str, Cohort] = {}
+    # Map subject_id -> list of (cohort_label, score_idx) for all splits.
+    subject_splits: dict[str, list[EvalSplit]] = {}
+    for sp in splits_list:
+        subject_splits.setdefault(sp.subject_id, []).append(sp)
+        # Cohort label: prefer "train" if present (two splits for training athletes).
+        if sp.subject_id not in cohort_labels or sp.cohort == "train":
+            cohort_labels[sp.subject_id] = sp.cohort
+
+    # Step 1: identify training-cohort athletes and fit.
+    train_cohort = {
+        sid: cohort[sid]
+        for sid, label in cohort_labels.items()
+        if label == "train"
+    }
+    fitted_estimator = estimator.fit(
+        train_cohort, observation, workout_transition, rest_transition, prior
+    )
+
+    # Take the fitted observation model from the estimator's public surface
+    # (Protocol-level: every StateEstimator answers `fitted_observation()`).
+    # For families that fit observation parameters jointly (JointMLEKalman),
+    # this returns a fresh populated instance built from the estimator's
+    # parameters. For families that consume a pre-fit observation without
+    # modifying it, this returns that same instance. The harness does not
+    # mutate the caller's `observation` argument.
+    observation = fitted_estimator.fitted_observation()
+
+    # Step 2: infer per-athlete posteriors (all athletes, not only training).
+    Z_hat: dict[str, object] = {}
+    for sid in cohort:
+        athlete_prior = prior[sid] if isinstance(prior, Mapping) else prior
+        Z_hat[sid] = fitted_estimator.infer(cohort[sid], prior=athlete_prior)
+
+    max_rest = rest_transition.max_consecutive_rest_days
+
+    # Steps 3 & 4: produce XPredictive and rest_bound_violations per split.
+    # Each EvalSplit gets its own XPredictive keyed by subject_id. When a subject
+    # has two splits (train + test), the last one written wins; the caller gets one
+    # XPredictive per subject_id. To preserve both, the spec says keyed by subject_id —
+    # training athletes have two splits but a single Z_hat entry. We use the
+    # test/score split's score_idx for the XPredictive (the harness iterates all splits
+    # and we keep the last, which for training athletes is the "test" split appended second).
+    # For simplicity, collect all (sid, score_idx) pairs and produce one entry per
+    # unique (sid, cohort_label) — but the EvalResult fields are keyed by subject_id only.
+    # Resolution: use the non-train split when both exist (test > train for predictive).
+    score_split_per_sid: dict[str, EvalSplit] = {}
+    for sp in splits_list:
+        if sp.subject_id not in score_split_per_sid or sp.cohort != "train":
+            score_split_per_sid[sp.subject_id] = sp
+
+    X_pred: dict[str, XPredictive] = {}
+    rest_bound_violations: dict[str, np.ndarray] = {}
+
+    for sid, sp in score_split_per_sid.items():
+        channels = cohort[sid]
+        posterior = Z_hat[sid]
+        score_idx = sp.score_idx          # shape (T_score,)
+        T_score = len(score_idx)
+
+        # --- XPredictive mean ---
+        # Slice posterior mean at score_idx rows and wrap in Z_channel.
+        posterior_mean_full = posterior.mean()   # (T, d_Z)
+        posterior_cov_full = posterior.cov        # (T, d_Z, d_Z)
+        z_mean_score = posterior_mean_full[score_idx]   # (T_score, d_Z)
+        z_cov_score = posterior_cov_full[score_idx]     # (T_score, d_Z, d_Z)
+        z_score = Z_channel(
+            mean=z_mean_score,
+            cov=z_cov_score,
+            dates=channels.dates[score_idx],
+        )
+        from statepace.channels import P as P_channel, E as E_channel, X as X_channel
+        p_score = P_channel(
+            values=channels.P.values[score_idx],
+            names=channels.P.names,
+        )
+        e_score = E_channel(
+            values=channels.E.values[score_idx],
+            names=channels.E.names,
+        )
+        x_mean = observation.forward(z_score, p_score, e_score)   # X dataclass
+
+        # --- XPredictive samples ---
+        # Draw n_samples from ZPosterior.sample over the full timeline, then slice.
+        z_samples_full = posterior.sample(n_samples, rng)   # (n_samples, T, d_Z)
+        d_X = x_mean.values.shape[1]
+        samples = np.empty((n_samples, T_score, d_X), dtype=float)
+        for k in range(n_samples):
+            z_k = Z_channel(
+                mean=z_samples_full[k][score_idx],    # (T_score, d_Z)
+                cov=None,
+                dates=channels.dates[score_idx],
+            )
+            x_k = observation.forward(z_k, p_score, e_score)
+            samples[k] = x_k.values
+
+        # Propagate rest-day NaN to samples (rest rows are NaN in x_mean).
+        is_rest_score = channels.X.is_rest[score_idx]   # (T_score,)
+        samples[:, is_rest_score, :] = np.nan
+
+        X_pred[sid] = XPredictive(
+            mean=x_mean,
+            samples=samples,
+            n_samples=n_samples,
+        )
+
+        # --- rest_bound_violations ---
+        consec = _count_consecutive_rest(channels.X.is_rest)   # (T,)
+        violations = consec[score_idx] > max_rest              # (T_score,) bool
+        rest_bound_violations[sid] = violations
+
+    return EvalResult(
+        Z_hat=Z_hat,
+        X_pred=X_pred,
+        cohort=cohort_labels,
+        rest_bound_violations=rest_bound_violations,
+    )
 
 
 @dataclass(frozen=True)
@@ -286,14 +440,60 @@ def run_sweep(
     cohort: Mapping[str, Channels],
     splits: Iterable[EvalSplit],
     bundles: Sequence[FormsBundle],
+    *,
+    n_samples: int = 200,
+    rng: np.random.Generator | None = None,
 ) -> "SweepResult":
     """Invoke run_evaluation once per bundle, keying results by bundle label.
 
     All bundles share the same cohort and splits; only the Protocol wiring
     varies across runs. Duplicate labels in `bundles` are a caller error
-    (validated at M4 alongside the body).
+    (validated here).
+
+    Args:
+        cohort: per-athlete Channels, keyed by subject_id.
+        splits: iterable of EvalSplit; consumed once and shared across all bundles.
+        bundles: sequence of FormsBundle; labels must be unique.
+        n_samples: passed through to run_evaluation.
+        rng: passed through to run_evaluation.
+
+    Returns:
+        SweepResult with results and bundles dicts keyed by bundle label.
+
+    Raises:
+        ValueError: if any two bundles share the same label.
     """
-    ...
+    labels = [b.label for b in bundles]
+    seen: set[str] = set()
+    for label in labels:
+        if label in seen:
+            raise ValueError(
+                f"run_sweep: duplicate bundle label '{label}'. "
+                "Each bundle label must be unique within a sweep."
+            )
+        seen.add(label)
+
+    splits_list = list(splits)
+
+    results: dict[str, EvalResult] = {}
+    bundles_map: dict[str, FormsBundle] = {}
+
+    for bundle in bundles:
+        result = run_evaluation(
+            cohort=cohort,
+            splits=splits_list,
+            estimator=bundle.estimator,
+            observation=bundle.observation,
+            workout_transition=bundle.workout_transition,
+            rest_transition=bundle.rest_transition,
+            prior=bundle.prior,
+            n_samples=n_samples,
+            rng=rng,
+        )
+        results[bundle.label] = result
+        bundles_map[bundle.label] = bundle
+
+    return SweepResult(results=results, bundles=bundles_map)
 
 
 @dataclass(frozen=True)

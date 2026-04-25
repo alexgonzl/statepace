@@ -406,6 +406,12 @@ class StateEstimator(Protocol):
     (ADR 0002). Concrete implementations decide whether they use observation.log_prob,
     transition.log_prob, both, or approximations thereof.
 
+    `fitted_observation` returns the ObservationModel realized by the estimator's
+    fitted parameters. Families that fit observation parameters jointly construct
+    a fresh populated instance; families that consume a pre-fit observation
+    return it unchanged. The harness uses this surface to obtain the predictive
+    observation model without reaching into estimator-private state.
+
     `d_Z` must equal the observation model's and transitions' `d_Z` at fit time;
     mismatch is a fit-time error.
     """
@@ -427,6 +433,8 @@ class StateEstimator(Protocol):
         mode: InferMode = "filter",
         prior: Prior | None = None,
     ) -> ZPosterior: ...    # widened from Z at M6 (ADR 0006)
+
+    def fitted_observation(self) -> ObservationModel: ...
 ```
 
 **In-scope**: filtering `p(Z_t | P_{1:t}, X_{1:t}, E_{1:t})`; smoothing
@@ -551,6 +559,14 @@ distribution. Sample-based representation is family-agnostic — it
 composes with any `ZPosterior` subclass (Gaussian, sample-based, mixture)
 and any `ObservationModel` without harness changes. Choice of interval /
 coverage summary is metric-side (M8).
+
+After `estimator.fit`, the harness obtains the predictive observation
+model via `fitted_estimator.fitted_observation()` (Protocol-level surface
+on `StateEstimator`). For estimators that fit the observation jointly
+(JointMLEKalman), this returns a freshly populated instance carrying the
+jointly-fit parameters; for estimators that consume a pre-fit observation
+unchanged, it returns that same instance. The caller's `observation`
+argument is never mutated.
 
 ```python
 from __future__ import annotations

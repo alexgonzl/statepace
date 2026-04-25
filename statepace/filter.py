@@ -189,6 +189,17 @@ class StateEstimator(Protocol):
     (ADR 0002). Concrete implementations decide whether they use observation.log_prob,
     transition.log_prob, both, or approximations thereof.
 
+    `fitted_observation` returns the ObservationModel the estimator's parameters
+    realize — a fresh, fully-populated instance whose `forward`/`inverse`/`log_prob`
+    are callable. Families that fit observation parameters jointly (e.g.,
+    JointMLEKalman, where A/B/C/d/Σ live inside the estimator's parameter dict)
+    construct and return a populated instance. Families that consume a pre-fit
+    observation without modifying it return that same instance unchanged. This
+    keeps the estimator's internal parameter representation private and gives
+    the harness a Protocol-level surface to obtain the predictive observation
+    model — required by the prediction path (filter → forward → observation
+    at reference conditions).
+
     `d_Z` must equal the observation model's and transitions' `d_Z` at fit time;
     mismatch is a fit-time error.
     """
@@ -210,6 +221,8 @@ class StateEstimator(Protocol):
         mode: InferMode = "filter",
         prior: Prior | None = None,
     ) -> ZPosterior: ...
+
+    def fitted_observation(self) -> ObservationModel: ...
 
 
 # ---------------------------------------------------------------------------
@@ -527,6 +540,48 @@ class JointMLEKalman:
             cov=cov_traj,
             dates=channels.dates.copy(),
         )
+
+    # ------------------------------------------------------------------
+    # Public: fitted_observation
+    # ------------------------------------------------------------------
+
+    def fitted_observation(self) -> ObservationModel:
+        """Return a fresh RiegelScoreHRStep populated with the jointly-fit observation parameters.
+
+        JointMLEKalman fits the observation parameters (A, B, C, d, Σ) jointly
+        with the transition parameters inside the differentiable Kalman filter
+        (spec §Coherence with other impls: "the estimator does not call M4's
+        fit; it consumes its log_prob"). After fit, those parameters live in
+        this estimator's internal theta. This method projects them onto a
+        concrete ObservationModel instance so the harness's prediction path
+        (forward / inverse / log_prob at score-window conditions) can call
+        Protocol-level methods without reaching into private estimator state.
+
+        Returns a new instance per call; does not mutate self or any external
+        observation argument.
+
+        Returns:
+            RiegelScoreHRStep with A, B, C, d, Σ, _x_names populated.
+
+        Raises:
+            RuntimeError: if called before fit().
+        """
+        from statepace.observation import RiegelScoreHRStep
+
+        if self._theta is None:
+            raise RuntimeError(
+                "JointMLEKalman.fitted_observation() called before fit(). Call fit() first."
+            )
+
+        arrays = _theta_to_arrays(self._theta, self.cfg)
+        obs = RiegelScoreHRStep(d_Z=self.cfg.d_Z)
+        obs.A = arrays["A"]
+        obs.B = arrays["B"]
+        obs.C = arrays["C"]
+        obs.d = arrays["d_vec"]
+        obs.Σ = arrays["Sigma"]
+        obs._x_names = self._x_names
+        return obs
 
 
 # ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-"""Tests for statepace/evaluation/harness.py: assign_cohorts and make_splits."""
+"""Tests for statepace/evaluation/harness.py: assign_cohorts, make_splits, run_evaluation, run_sweep."""
 from __future__ import annotations
 
 import math
@@ -6,7 +6,16 @@ import math
 import numpy as np
 import pytest
 
-from statepace.evaluation.harness import assign_cohorts, make_splits
+from statepace.evaluation.harness import (
+    EvalResult,
+    EvalSplit,
+    FormsBundle,
+    XPredictive,
+    assign_cohorts,
+    make_splits,
+    run_evaluation,
+    run_sweep,
+)
 from tests.fixtures.synthetic import make_m2_test_cohort, make_channels
 
 # Hyperparameters per D2 / plan §M2.
@@ -312,3 +321,286 @@ def test_make_splits_short_timeline_raises():
             test_days=TEST_DAYS,
             cohort_assignment=assignment,
         ))
+
+
+# ---------------------------------------------------------------------------
+# Helpers shared across run_evaluation / run_sweep tests
+# ---------------------------------------------------------------------------
+
+def _make_canonical_bundle(d_Z: int = 4, max_iterations: int = 20) -> FormsBundle:
+    """Build the canonical M6 wiring: riegel-score-hrstep + linear-gaussian + joint-mle-kalman."""
+    from statepace.filter import JointMLEKalman, JointMLEKalmanConfig, Prior
+    from statepace.observation import RiegelScoreHRStep
+    from statepace.transitions import LinearGaussianRestTransition, LinearGaussianWorkoutTransition
+
+    cfg = JointMLEKalmanConfig(
+        d_Z=d_Z,
+        tau=(1.0, 7.0, 28.0, 84.0),
+        max_iterations=max_iterations,
+        n_seeds=1,
+        patience=5,
+        eval_every=5,
+    )
+    prior = Prior(d_Z=d_Z, diffuse=True, mean=None, cov=None)
+    return FormsBundle(
+        label="canonical",
+        observation=RiegelScoreHRStep(d_Z=d_Z),
+        workout_transition=LinearGaussianWorkoutTransition(d_Z=d_Z),
+        rest_transition=LinearGaussianRestTransition(d_Z=d_Z, max_consecutive_rest_days=10),
+        estimator=JointMLEKalman(cfg=cfg),
+        prior=prior,
+    )
+
+
+def _make_small_cohort_and_splits(
+    n_athletes: int = 4,
+    n_days: int = 60,
+    seed: int = 0,
+    warmup_days: int = 10,
+    train_days: int = 30,
+    score_days: int = 20,
+) -> tuple:
+    """Return (cohort, splits_list) for run_evaluation tests."""
+    from tests.fixtures.reference_impls.joint_mle_kalman import make_joint_mle_kalman_cohort
+
+    cohort, _true_mu0, _theta = make_joint_mle_kalman_cohort(
+        n_athletes=n_athletes,
+        n_days=n_days,
+        d_Z=4,
+        tau=(1.0, 7.0, 28.0, 84.0),
+        sigma0_sq=1.0,
+        seed=seed,
+    )
+
+    fit_idx = np.arange(0, warmup_days + train_days, dtype=int)
+    score_idx = np.arange(warmup_days + train_days, warmup_days + train_days + score_days, dtype=int)
+
+    subject_ids = list(cohort.keys())
+    # First athlete is "train", rest are "test" (simple; validates both cohort paths).
+    splits = []
+    for i, sid in enumerate(subject_ids):
+        if i == 0:
+            splits.append(EvalSplit(subject_id=sid, cohort="train", fit_idx=fit_idx, score_idx=fit_idx[warmup_days:]))
+        else:
+            splits.append(EvalSplit(subject_id=sid, cohort="test", fit_idx=fit_idx, score_idx=score_idx))
+
+    return cohort, splits
+
+
+# ---------------------------------------------------------------------------
+# run_evaluation tests
+# ---------------------------------------------------------------------------
+
+def test_run_evaluation_returns_eval_result():
+    """run_evaluation returns an EvalResult with correct keys."""
+    from statepace.filter import GaussianZPosterior
+
+    cohort, splits = _make_small_cohort_and_splits()
+    bundle = _make_canonical_bundle()
+
+    result = run_evaluation(
+        cohort=cohort,
+        splits=splits,
+        estimator=bundle.estimator,
+        observation=bundle.observation,
+        workout_transition=bundle.workout_transition,
+        rest_transition=bundle.rest_transition,
+        prior=bundle.prior,
+        n_samples=10,
+        rng=np.random.default_rng(1),
+    )
+
+    assert isinstance(result, EvalResult)
+    assert set(result.Z_hat.keys()) == set(cohort.keys())
+    assert set(result.X_pred.keys()) == set(cohort.keys())
+    assert set(result.cohort.keys()) == set(cohort.keys())
+    assert set(result.rest_bound_violations.keys()) == set(cohort.keys())
+
+    for sid in cohort:
+        assert isinstance(result.Z_hat[sid], GaussianZPosterior)
+
+
+def test_run_evaluation_x_pred_shapes():
+    """XPredictive.samples has shape (n_samples, T_score, d_X) for each athlete."""
+    n_samples = 10
+    cohort, splits = _make_small_cohort_and_splits(
+        warmup_days=10, train_days=30, score_days=20
+    )
+    bundle = _make_canonical_bundle()
+
+    result = run_evaluation(
+        cohort=cohort,
+        splits=splits,
+        estimator=bundle.estimator,
+        observation=bundle.observation,
+        workout_transition=bundle.workout_transition,
+        rest_transition=bundle.rest_transition,
+        prior=bundle.prior,
+        n_samples=n_samples,
+        rng=np.random.default_rng(2),
+    )
+
+    d_X = 10  # riegel-score-hrstep has 10 X channels
+    for sid, xp in result.X_pred.items():
+        assert isinstance(xp, XPredictive)
+        assert xp.n_samples == n_samples
+        assert xp.samples.ndim == 3
+        assert xp.samples.shape[0] == n_samples
+        assert xp.samples.shape[2] == d_X
+
+
+def test_run_evaluation_rest_bound_violations_bool_shape():
+    """rest_bound_violations is a boolean array aligned with the score window."""
+    cohort, splits = _make_small_cohort_and_splits()
+    bundle = _make_canonical_bundle()
+
+    result = run_evaluation(
+        cohort=cohort,
+        splits=splits,
+        estimator=bundle.estimator,
+        observation=bundle.observation,
+        workout_transition=bundle.workout_transition,
+        rest_transition=bundle.rest_transition,
+        prior=bundle.prior,
+        n_samples=5,
+        rng=np.random.default_rng(3),
+    )
+
+    for sid, violations in result.rest_bound_violations.items():
+        assert violations.dtype == bool
+        # Shape should match the score_idx for this subject's split.
+        # Find the split used for this subject.
+        xp = result.X_pred[sid]
+        T_score = xp.samples.shape[1]
+        assert violations.shape == (T_score,)
+
+
+def test_run_evaluation_cohort_mapping_complete():
+    """cohort mapping covers all athletes with valid cohort labels."""
+    cohort, splits = _make_small_cohort_and_splits()
+    bundle = _make_canonical_bundle()
+
+    result = run_evaluation(
+        cohort=cohort,
+        splits=splits,
+        estimator=bundle.estimator,
+        observation=bundle.observation,
+        workout_transition=bundle.workout_transition,
+        rest_transition=bundle.rest_transition,
+        prior=bundle.prior,
+        n_samples=5,
+        rng=np.random.default_rng(4),
+    )
+
+    valid_labels = {"train", "test", "validation"}
+    for sid, label in result.cohort.items():
+        assert label in valid_labels
+    assert set(result.cohort.keys()) == set(cohort.keys())
+
+
+def test_run_evaluation_n_samples_configurable():
+    """n_samples is reflected in XPredictive.n_samples and samples.shape[0]."""
+    for n in (5, 15):
+        cohort, splits = _make_small_cohort_and_splits()
+        bundle = _make_canonical_bundle()
+
+        result = run_evaluation(
+            cohort=cohort,
+            splits=splits,
+            estimator=bundle.estimator,
+            observation=bundle.observation,
+            workout_transition=bundle.workout_transition,
+            rest_transition=bundle.rest_transition,
+            prior=bundle.prior,
+            n_samples=n,
+            rng=np.random.default_rng(5),
+        )
+
+        for sid, xp in result.X_pred.items():
+            assert xp.n_samples == n
+            assert xp.samples.shape[0] == n
+
+
+# ---------------------------------------------------------------------------
+# run_sweep tests
+# ---------------------------------------------------------------------------
+
+def test_run_sweep_two_bundles():
+    """run_sweep returns SweepResult with both bundle labels as keys."""
+    from statepace.filter import JointMLEKalman, JointMLEKalmanConfig, Prior
+    from statepace.observation import RiegelScoreHRStep
+    from statepace.transitions import LinearGaussianRestTransition, LinearGaussianWorkoutTransition
+
+    cohort, splits = _make_small_cohort_and_splits()
+
+    d_Z = 4
+    cfg = JointMLEKalmanConfig(
+        d_Z=d_Z, tau=(1.0, 7.0, 28.0, 84.0),
+        max_iterations=10, n_seeds=1, patience=3, eval_every=3,
+    )
+    prior = Prior(d_Z=d_Z, diffuse=True, mean=None, cov=None)
+
+    bundle_a = FormsBundle(
+        label="bundle_a",
+        observation=RiegelScoreHRStep(d_Z=d_Z),
+        workout_transition=LinearGaussianWorkoutTransition(d_Z=d_Z),
+        rest_transition=LinearGaussianRestTransition(d_Z=d_Z, max_consecutive_rest_days=10),
+        estimator=JointMLEKalman(cfg=cfg),
+        prior=prior,
+    )
+    bundle_b = FormsBundle(
+        label="bundle_b",
+        observation=RiegelScoreHRStep(d_Z=d_Z),
+        workout_transition=LinearGaussianWorkoutTransition(d_Z=d_Z),
+        rest_transition=LinearGaussianRestTransition(d_Z=d_Z, max_consecutive_rest_days=10),
+        estimator=JointMLEKalman(cfg=cfg),
+        prior=prior,
+    )
+
+    sweep = run_sweep(cohort=cohort, splits=splits, bundles=[bundle_a, bundle_b], n_samples=5)
+
+    assert set(sweep.results.keys()) == {"bundle_a", "bundle_b"}
+    assert set(sweep.bundles.keys()) == {"bundle_a", "bundle_b"}
+    for label in ("bundle_a", "bundle_b"):
+        assert isinstance(sweep.results[label], EvalResult)
+
+
+def test_run_sweep_duplicate_labels_raises():
+    """Duplicate bundle labels raise ValueError."""
+    cohort, splits = _make_small_cohort_and_splits()
+    bundle = _make_canonical_bundle()
+    bundle2 = FormsBundle(
+        label="canonical",   # same label
+        observation=bundle.observation,
+        workout_transition=bundle.workout_transition,
+        rest_transition=bundle.rest_transition,
+        estimator=bundle.estimator,
+        prior=bundle.prior,
+    )
+
+    with pytest.raises(ValueError, match="canonical"):
+        run_sweep(cohort=cohort, splits=splits, bundles=[bundle, bundle2], n_samples=5)
+
+
+def test_run_evaluation_canonical_smoke():
+    """Full canonical wiring (riegel-score-hrstep + linear-gaussian + joint-mle-kalman) on a tiny cohort runs without error."""
+    cohort, splits = _make_small_cohort_and_splits(n_athletes=4, n_days=60)
+    bundle = _make_canonical_bundle(max_iterations=15)
+
+    result = run_evaluation(
+        cohort=cohort,
+        splits=splits,
+        estimator=bundle.estimator,
+        observation=bundle.observation,
+        workout_transition=bundle.workout_transition,
+        rest_transition=bundle.rest_transition,
+        prior=bundle.prior,
+        n_samples=10,
+        rng=np.random.default_rng(42),
+    )
+
+    assert isinstance(result, EvalResult)
+    assert len(result.Z_hat) == len(cohort)
+    assert len(result.X_pred) == len(cohort)
+    assert len(result.cohort) == len(cohort)
+    assert len(result.rest_bound_violations) == len(cohort)
