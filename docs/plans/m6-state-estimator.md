@@ -1,6 +1,6 @@
 # M6 — First reference `StateEstimator`
 
-**Status:** active (W3 closed; W4 unblocked)
+**Status:** active (W4 closed; W5 unblocked)
 **Last updated:** 2026-04-24
 
 Sequencing plan for M6 — first reference `StateEstimator` paired with the `riegel-score-hrstep` observation (M4) and `linear-gaussian` transitions (M5). Also lands the two harness bodies deferred from M4: `run_sweep` and `run_evaluation`.
@@ -30,10 +30,11 @@ This estimator is a **constrained-MLE first reference**, not a generic-baseline 
 - **W1** — M6 spec draft (`docs/reference_impls/joint-mle-kalman.md`). Commit `a6e7661`.
 - **W2** — Spec audit rounds. Audit-clean across identifiability-auditor and senior-scientist (round 8). Commit `a6e7661`.
 - **W3** — M6 ADR (`docs/decisions/0006-m6-joint-mle-kalman-first-state-estimator.md`). Commit `09552b6`.
+- **W4** — M6 impl + tests. `JointMLEKalman` in `statepace/filter.py`; `ZPosterior` sealed ABC + `GaussianZPosterior`; signatures widened in `forward.py` and `predict.py`; `architecture_map.md` updated; 25 new tests; 57 passing total in 88s. Three rounds of architect-driven remediation (env, rest-bound plumbing, NA1 recovery test + fixture rebalance, scope-creep removal). Spec note `W-D-internal-val` closed (commit `a460bc9`). Commit `10e8d12`.
 
 ### Active
 
-W4 — M6 impl + tests. Differentiable Kalman + SGD in `statepace/filter.py`; `ZPosterior` sealed ABC + `GaussianZPosterior`; scaffold signature updates to `forward.py` and `predict.py` (bodies remain M7). Open W-Dn decisions (W-D2 framework, W-D3–D11 hyperparameters, W-D12 RTS, W-D13 sign-convention tolerances, W-D14 ABC interface, W-D15 between-athlete-equilibrium-variance threshold) — most resolved in spec; remaining ones close at W4 dispatch.
+W5 — `run_sweep` and `run_evaluation` bodies + tests. Mechanical wiring of the harness functions whose bodies have been deferred since M4. `run_evaluation` consumes `ZPosterior` from `infer`; passes posterior mean + covariance to observation forward at score-window days for calibrated prediction intervals. `rest_bound_violations` populated by scanning runs.
 
 ### Audits landed
 
@@ -108,10 +109,10 @@ Audit rounds continue as W1 iterates on this draft.
 W1  M6 spec draft: SGD + structural constraints          ✅ a6e7661
 W2  M6 spec audit rounds + redrafts                       ✅ a6e7661
 W3  M6 ADR: family + init + gauge + constraints           ✅ 09552b6
-W4  M6 impl + tests: differentiable Kalman + SGD          ⏳ active
+W4  M6 impl + tests: differentiable Kalman + SGD          ✅ 10e8d12
     — includes Protocol widening (infer returns ZPosterior)
     — includes scaffold updates to forward.py / predict.py signatures
-W5  run_sweep + run_evaluation bodies + tests             ⏸ gated on W4
+W5  run_sweep + run_evaluation bodies + tests             ⏳ active
 W6  Acceptance diagnostics                                 ⏸ gated on W5
 ```
 
