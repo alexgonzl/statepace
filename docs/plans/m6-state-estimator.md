@@ -1,6 +1,6 @@
 # M6 — First reference `StateEstimator`
 
-**Status:** active (audit-clean — round 8 verification by identifiability-auditor + senior-scientist)
+**Status:** active (W3 closed; W4 unblocked)
 **Last updated:** 2026-04-24
 
 Sequencing plan for M6 — first reference `StateEstimator` paired with the `riegel-score-hrstep` observation (M4) and `linear-gaussian` transitions (M5). Also lands the two harness bodies deferred from M4: `run_sweep` and `run_evaluation`.
@@ -27,11 +27,13 @@ This estimator is a **constrained-MLE first reference**, not a generic-baseline 
 
 ### Completed
 
-None — M6 just opened.
+- **W1** — M6 spec draft (`docs/reference_impls/joint-mle-kalman.md`). Commit `a6e7661`.
+- **W2** — Spec audit rounds. Audit-clean across identifiability-auditor and senior-scientist (round 8). Commit `a6e7661`.
+- **W3** — M6 ADR (`docs/decisions/0006-m6-joint-mle-kalman-first-state-estimator.md`). Commit `09552b6`.
 
 ### Active
 
-W1 — M6 spec draft. **Plan is audit-clean as of round 8** (identifiability-auditor + senior-scientist both verified). Ready to dispatch spec-author work to a Tier-2 specialist (joint master-statistician + senior-scientist draft per W1 dispatch note).
+W4 — M6 impl + tests. Differentiable Kalman + SGD in `statepace/filter.py`; `ZPosterior` sealed ABC + `GaussianZPosterior`; scaffold signature updates to `forward.py` and `predict.py` (bodies remain M7). Open W-Dn decisions (W-D2 framework, W-D3–D11 hyperparameters, W-D12 RTS, W-D13 sign-convention tolerances, W-D14 ABC interface, W-D15 between-athlete-equilibrium-variance threshold) — most resolved in spec; remaining ones close at W4 dispatch.
 
 ### Audits landed
 
@@ -102,10 +104,10 @@ Audit rounds continue as W1 iterates on this draft.
 ## Workstreams
 
 ```
-W1  M6 spec draft: SGD + structural constraints          ⏳ pre-audit
-W2  M6 spec audit rounds + redrafts                       ⏸ gated on W1
-W3  M6 ADR: family + init + gauge + constraints           ⏸ gated on W2 audit-clean
-W4  M6 impl + tests: differentiable Kalman + SGD          ⏸ gated on W3
+W1  M6 spec draft: SGD + structural constraints          ✅ a6e7661
+W2  M6 spec audit rounds + redrafts                       ✅ a6e7661
+W3  M6 ADR: family + init + gauge + constraints           ✅ 09552b6
+W4  M6 impl + tests: differentiable Kalman + SGD          ⏳ active
     — includes Protocol widening (infer returns ZPosterior)
     — includes scaffold updates to forward.py / predict.py signatures
 W5  run_sweep + run_evaluation bodies + tests             ⏸ gated on W4
