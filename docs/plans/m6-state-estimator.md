@@ -54,6 +54,7 @@ W4 — M6 impl + tests. Differentiable Kalman + SGD in `statepace/filter.py`; `Z
 - **identifiability-auditor on `τ` schedule** (2026-04-24): `τ_max = 180` identifiability-toxic with 210-day train window (only 1.17 e-foldings). Recommended `(1, 4, 16, 64)` factor-4. Flagged uniform log-spacing gives uniform pairwise correlation (evenly distributes off-diagonal identifiability); "Fourier basis" analogy overstated but structural property (self-similar scale-equivariant basis) is real.
 - **PM resolution on `τ` schedule (2026-04-24):** `(1, 7, 28, 84)` factor-3.5 — physiologically named (day/week/month/quarter) and identifiability acceptable (τ_4 = 84 → 2.5 e-foldings, loose but not toxic).
 - **PM resolution on `infer` covariance (S3):** widen Protocol to return `(mean, cov)` at M6. Covariance is computed by the Kalman filter regardless; throwing it away and re-deriving at M7 is strictly worse.
+- **senior-scientist literature-fit assessment** (2026-04-24, post-W3): position M6 as a *constrained NLME fit of a multi-component fitness-fatigue model*, not as a novel SSM. Banister/Busso/Hellard is the fitness-fatigue lineage; Pinheiro-Bates / Sheiner-Beal NLME is the cohort-shared-`θ` + per-athlete-`Z_0` lineage. M6 sits at the most restrictive end of the NLME spectrum (only `Z_0` random); successor row 1 is the natural NLME next step. **Action deferred to M6-close:** add a one-paragraph literature anchor to ADR 0006 *Context* citing Hellard 2006 (Banister + hierarchical Bayes) and Pinheiro & Bates 2000 (NLME). Differentiable Kalman + SGD treated as plumbing (no positioning needed). Structural-prior-relaxation strategy stands as research design; no formal label fits cleanly.
 
 Audit rounds continue as W1 iterates on this draft.
 
@@ -338,4 +339,4 @@ Aggregate exit: full pytest passes; CLAUDE.md index current; sequencing plan upd
 - W-Dn decisions resolve in Open decisions table.
 - Scope drifts update Out of scope before code lands.
 - Plan edits are their own commits.
-- On M6 close: flip `Status` to `complete`; update `post-scaffold-sequencing.md` M6 row; record successor milestone (hierarchical `Z_0^{(i)}` + per-athlete `b^{(i)}`).
+- On M6 close: flip `Status` to `complete`; update `post-scaffold-sequencing.md` M6 row; record successor milestone (hierarchical `Z_0^{(i)}` + per-athlete `b^{(i)}`); add literature-anchor paragraph to ADR 0006 *Context* per the senior-scientist assessment (Banister/Busso/Hellard + Pinheiro-Bates NLME).
