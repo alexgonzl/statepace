@@ -1,7 +1,7 @@
 """Prediction integral composition: filter output -> forward propagation -> observation inverse (architecture_map §3.6)."""
 from __future__ import annotations
 from statepace.channels import Channels, P, E, X, Array
-from statepace.filter import StateEstimator
+from statepace.filter import StateEstimator, ZPosterior
 from statepace.forward import ForwardSchedule
 from statepace.observation import ObservationModel, ConditioningSpec
 from statepace.transitions import WorkoutTransition, RestTransition

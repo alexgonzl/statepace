@@ -1,5 +1,6 @@
 name: statepace
 channels:
+  - pytorch
   - conda-forge
   - defaults
 dependencies:
@@ -12,6 +13,7 @@ dependencies:
   - tqdm
   - matplotlib
   - jupyter
+  - pytorch>=2.0
   - pip
   - pip:
     - -e .

@@ -2,6 +2,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from statepace.channels import Z, X as X_channel, Array
+from statepace.filter import ZPosterior
 from statepace.transitions import WorkoutTransition, RestTransition
 
 
@@ -18,8 +19,8 @@ class ForwardSchedule:
 
 
 def forward_state(
-    Z_t: Z,
+    Z_t: ZPosterior,
     schedule: ForwardSchedule,
     workout_transition: WorkoutTransition,
     rest_transition: RestTransition,
-) -> Z: ...
+) -> ZPosterior: ...

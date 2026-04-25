@@ -323,11 +323,17 @@ policy after past-bound gaps (caller's responsibility, surfaced via the
 Inference over `Z`. Single interface across estimator families (EWM,
 Kalman, GP, ML). Estimator choice is deferred to later rounds.
 
+M6 widening (ADR 0006): `StateEstimator.infer` now returns `ZPosterior`
+(sealed ABC) instead of `Z`. M6 returns `GaussianZPosterior`
+(mean + marginal cov from Kalman pass). Successor families define their
+own concrete subclasses without re-widening.
+
 ```python
 from __future__ import annotations
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Protocol, Literal, Mapping
-from statepace.channels import Channels, Z, Array
+from statepace.channels import Channels, Array
 from statepace.observation import ObservationModel
 from statepace.transitions import WorkoutTransition, RestTransition
 
@@ -350,6 +356,43 @@ class Prior:
     diffuse: bool                 # must be True to satisfy A8
     mean: Array | None            # shape (d_Z,) or None
     cov: Array | None             # shape (d_Z, d_Z) or None
+
+
+class ZPosterior(ABC):
+    """Sealed ABC for filtered / smoothed Z posterior (M6 widening, ADR 0006).
+
+    Successor estimator families define concrete subclasses; M7+ forward.py
+    and predict.py dispatch on the ABC interface.
+
+    Attributes:
+        dates: datetime64[ns] array, shape (T,).
+        d_Z: latent dimensionality.
+    """
+    dates: Array   # datetime64[ns], shape (T,)
+    d_Z: int
+
+    @abstractmethod
+    def mean(self) -> Array: ...        # (T, d_Z)
+
+    @abstractmethod
+    def sample(self, n: int, rng) -> Array: ...    # (n, T, d_Z)
+
+    @abstractmethod
+    def marginal_log_pdf(self, z: Array) -> Array: ...    # (T,)
+
+
+@dataclass(frozen=True)
+class GaussianZPosterior(ZPosterior):
+    """Gaussian Kalman-filter posterior (M6 concrete subclass).
+
+    Attributes:
+        _mean: shape (T, d_Z).
+        cov: shape (T, d_Z, d_Z).
+        dates: datetime64[ns], shape (T,).
+    """
+    _mean: Array          # (T, d_Z)
+    cov: Array            # (T, d_Z, d_Z)
+    dates: Array          # datetime64[ns], shape (T,)
 
 
 class StateEstimator(Protocol):
@@ -383,20 +426,20 @@ class StateEstimator(Protocol):
         channels: Channels,
         mode: InferMode = "filter",
         prior: Prior | None = None,
-    ) -> Z: ...
+    ) -> ZPosterior: ...    # widened from Z at M6 (ADR 0006)
 ```
 
 **In-scope**: filtering `p(Z_t | P_{1:t}, X_{1:t}, E_{1:t})`; smoothing
 `p(Z_t | P_{1:T}, X_{1:T}, E_{1:T})`; accepting an explicit `Prior` on
 `Z_0` (A8); warm-up enforcement (conventions §warm-up) via the
 harness — the estimator itself emits estimates for all `t` and leaves
-warm-up masking to callers.
+warm-up masking to callers. `ZPosterior` ABC + `GaussianZPosterior` (M6).
 
 **Out-of-scope**: `p(X|Z,P,E)` (observation); `f`/`g` (transitions);
 τ-step forward prediction (`forward.py`); scoring; the framework-level
 decision that the prior is diffuse (that's A8, not a filter choice).
 
-**Depends on**: `channels`, `observation`, `transitions`, `numpy`.
+**Depends on**: `channels`, `observation`, `transitions`, `numpy`, `torch` (M6 reference impl only).
 
 ---
 
@@ -406,18 +449,21 @@ decision that the prior is diffuse (that's A8, not a filter choice).
 `p(Z_{t+τ-1} | history)` using `f` and `g`. Per §7, this is the first
 factor in the prediction decomposition.
 
+M6 widening (ADR 0006): `forward_state` now accepts and returns `ZPosterior`
+instead of `Z`. Body remains `...` (M7 implements).
+
 ```python
 from __future__ import annotations
-from statepace.channels import Z
+from statepace.filter import ZPosterior
 from statepace.transitions import WorkoutTransition, RestTransition
 
 
 def forward_state(
-    Z_t: Z,
+    Z_t: ZPosterior,
     schedule: "ForwardSchedule",
     workout_transition: WorkoutTransition,
     rest_transition: RestTransition,
-) -> Z: ...
+) -> ZPosterior: ...
 
 
 from dataclasses import dataclass
@@ -441,7 +487,7 @@ noise accumulation.
 **Out-of-scope**: defining `f`/`g` (that's `transitions.py`); choosing
 `X_future` (caller's question); observation inversion (`predict.py`).
 
-**Depends on**: `channels`, `transitions`.
+**Depends on**: `channels`, `filter`, `transitions`.
 
 ---
 
@@ -454,10 +500,14 @@ p(X_{t+τ} | history) = ∫ p(X_{t+τ} | Z_{t+τ-1}, P_{t+τ}, E_{t+τ})
                        · p(Z_{t+τ-1} | history) dZ_{t+τ-1}
 ```
 
+M6 scope: `predict_session` signature is stub-only. Body remains `...`
+(M7 implements). M7 will wire `ZPosterior` from the filter as an argument —
+that parameter design lands in M7.
+
 ```python
 from __future__ import annotations
 from statepace.channels import Channels, P, E, X, Array
-from statepace.filter import StateEstimator
+from statepace.filter import StateEstimator, ZPosterior
 from statepace.forward import ForwardSchedule
 from statepace.observation import ObservationModel, ConditioningSpec
 from statepace.transitions import WorkoutTransition, RestTransition
@@ -767,7 +817,8 @@ Flagged, not fixed.
 ```
 channels  <-  observation  <-  filter  <-  predict
          <-  transitions  <-  filter
-                          <-  forward  <-  predict
+                          <-  forward  <-  predict   (forward also imports filter for ZPosterior)
+                filter     <-  forward               (M6 widening: ZPosterior ABC)
          <-  observation  <-  forward (via predict)
 
 evaluation/harness         <-  filter, observation, transitions, channels
@@ -776,4 +827,5 @@ evaluation/metrics         <-  evaluation/harness, evaluation/deconfounding
 ```
 
 No cycles. `predict.py` is a pure composition node. `evaluation/` is a
-strict sink.
+strict sink. Note: `forward.py` imports `ZPosterior` from `filter.py` (M6
+widening); `filter.py` does not import from `forward.py` — no cycle.
