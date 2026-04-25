@@ -12,7 +12,7 @@ Per-athlete cardiorespiratory state estimation from longitudinal run data:
 - **State transitions** `f` (workout), `g` (rest, bounded) → `transitions.py`; inference over Z in `filter.py`
 - **Prediction** = filter → forward → observation at reference conditions → `predict.py`
 
-Current state: first reference impls of `observation.py` (Gaussian-linear Riegel-score + HR/step load) and `transitions.py` (linear-Gaussian `f` + `g`) landed. `filter.py`, `forward.py`, `predict.py` remain scaffold. Public API (`statepace/__init__.py`) unchanged — reference impls are additive and not exported. Planned module layout lives in `docs/architecture_map.md`; concrete reference-impl specs live in `docs/reference_impls/`. Legacy names (`cardiac_cost.py`, `riegel.py`, `state_estimation.py`, etc.) are reference-only; do not import from new modules.
+Current state: first reference impls of `observation.py` (Gaussian-linear Riegel-score + HR/step load), `transitions.py` (linear-Gaussian `f` + `g`), and `filter.py` (joint-MLE Kalman with structural priors) landed. `forward.py`, `predict.py` remain scaffold (signatures widened to consume `ZPosterior`; bodies land at M7). Public API (`statepace/__init__.py`) unchanged — reference impls are additive and not exported. Planned module layout lives in `docs/architecture_map.md`; concrete reference-impl specs live in `docs/reference_impls/`. Legacy names (`cardiac_cost.py`, `riegel.py`, `state_estimation.py`, etc.) are reference-only; do not import from new modules.
 
 ---
 
