@@ -57,7 +57,7 @@ Each structural prior has a named successor that tests it.
 |---|---|---|
 | 1 | Cohort-shared `(b, m)` | Hierarchical per-athlete `(b^{(i)}, m^{(i)})` (must relax both — they are dual rest-target / workout-drift) |
 | 2 | Diagonal `H` | Free off-diagonal `H` |
-| 3 | Fixed `τ = (1, 7, 28, 84)` | Free `τ_i` per dimension, or finer fixed schedule with extended train window |
+| 3 | Fixed `τ = (1, 7, 28, 84)` | Free `τ_i` per dimension, or finer fixed schedule with extended train window. Includes the stable-trait limit case: if a fitted `τ_i` diverges, that dimension is effectively immutable (identity-diagonal + zero stimulus-loading row) and carries the A7 stable-trait role. |
 | 4a | Linear-Gaussian observation likelihood | Heavy-tailed / non-Gaussian observation likelihood |
 | 4b | Gaussian posterior on `Z` | Variational estimator with non-Gaussian posterior |
 | 5 | Stationary `(F, G, H, b)` (A10) | Switching SSM with regime indicators |
