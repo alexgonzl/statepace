@@ -225,6 +225,41 @@ After M10, record what was recovered, what the test-vs-validation gap looks like
 
 ---
 
+## Future axes (post-M10 roadmap)
+
+Aspirational; not committed. Work on any row begins by promoting it to a milestone-scoped plan (`docs/plans/<slug>.md`) per the plans-README rule.
+
+Two orthogonal successor axes after the first end-to-end run on real data closes:
+
+### Estimator-family axis (relax structural priors of M6)
+
+The M6 first-reference estimator bakes in structural priors (multi-timescale `Z` with fixed `τ`, diagonal `H`, cohort-shared `b`, headroom-bounded `G`, linear-Gaussian, stationary). Each prior has a named successor that relaxes it; full enumeration in [`m6-state-estimator.md`](m6-state-estimator.md) §W3 successor table. Successors run sequentially or in parallel as data and findings warrant.
+
+### Observation-channel axis (expand what `X`, `P`, or `E` carries)
+
+Holds the estimator family fixed; expands the channel composition. Each row gated by the `channel-assignment` skill (DAG bucket), `identifiability-checklist` (parameter accounting), `sports-science-advisor` (signal value), and a data-acquisition step.
+
+| # | Channel | Plausible bucket | What `Z`-question it sharpens | Data dependency |
+|---|---|---|---|---|
+| 1 | Time-in-zone / intensity distribution within session | `X` (transition-side `π_stim` enrichment) | Distinguishes "long easy" from "tempo" sessions of equal mean speed/HR. Sports-science-advisor flagged as the most important missing component during M6 audits. | Derivable from existing 10-second step traces; no new instrumentation. Independent of M1b. |
+| 2 | HRV (resting heart-rate variability) | `X` (observation-side, daily) | Directly observes recovery; sharpens `H` and `b` independently of workout-day execution. Adds emission row on rest days. | HRV-capable instrumentation (chest strap, ring, watch). M1b dependent. |
+| 3 | Resting heart rate | `X` (observation-side, daily) | Coarser proxy for the same recovery dynamics HRV addresses. | Watch / ring; lower instrumentation barrier than HRV. M1b dependent. |
+| 4 | Sleep duration / quality | `P` vs `E` ambiguous (channel-assignment-skill territory) | Gives `f`/`g` a covariate that explains residual `Z`-motion. Bucket choice changes the DAG interpretation. | Wearable or daily prompt. M1b dependent. |
+| 5 | Subjective wellness / RPE | `X` (observation-side, daily) | RPE on the same workout under different `Z` should differ — sharpens fatigue-axis identifiability. Couples to non-Gaussian observation likelihood (estimator-family row 4a). | Daily prompt; compliance-dependent. M1b dependent. |
+| 6 | Body mass / composition | Ambiguous — slow-varying trait (inside `Z` per §A7) vs daily measurement (`X`). Channel-assignment required. | Daily scale. Lower priority — limited daily-prediction value. |
+
+#### Diagnostic precursor
+
+Before committing to specific channel additions, a Tier-2 diagnostic at M10: train a small neural residual probe on M6 posterior residuals and ask whether systematic structure remains. If yes → some channel is missing → this table becomes the response menu. The probe is a diagnostic tool, not a successor estimator.
+
+#### Out of scope on the channel axis
+
+- **Concrete column-name or schema commitments.** The current data contract does not carry rows 2–6; admitting them requires schema work and channel-assignment commitments. Late-naming rule applies.
+- **Priority ordering across rows.** Sequencing depends on real-cohort data availability (M1b) and on M6 close-out findings.
+- **Deep state-space / structured state-space (S4 / Mamba) replacements of the SSM core.** These are not single-prior relaxations; they're a different research program entirely. Out of scope for both axes — interpretability collapse undermines the relaxation strategy's diagnostic value.
+
+---
+
 ## Maintenance
 
 This plan is the canonical current state of in-flight work. Update rules (enforced as a PM obligation):
