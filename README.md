@@ -47,3 +47,7 @@ statepace/
 Implementation of these modules is pending. The current package exposes
 only shared constants (`_constants.py`); see `docs/theoretical_framework.md`
 for the DAG and `docs/architecture_map.md` for the interface contracts.
+
+## License
+
+Apache License 2.0. See [`LICENSE`](LICENSE).
