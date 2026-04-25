@@ -102,6 +102,7 @@ Design and writing guideline for ADRs, plans, and architecture docs. Default to 
 - Report numbers and deltas; don't label pass/fail/success.
 - Every directory holding multiple files has a governance README (or equivalent — e.g., `statepace/` is governed by `docs/architecture_map.md`). A new directory, or a new file category inside an existing one, requires updating (or creating) that governance doc before the file lands.
 - **Defer variable naming and DAG-component assignment to implementation time.** The scaffold defines slots (`P`, `X`, `E`, `Z` with dimensions and shapes) but stays agnostic to which real-world quantity fills each slot. Concrete component names (e.g., `dist_km`, `pace_s_km`) and `ChannelAssignment` instances land at M9/M10 when real estimators run against real data — not during scaffold, protocol design, or intermediate milestones. Test-local names (e.g., in `tests/fixtures/synthetic.py`) are scoped to the test file that uses them and carry no project-wide commitment.
+- **Architect-implements-surgical-followups.** Master-architect may implement directly (no focused-engineer dispatch) when *all three* hold: (1) the change is in the same file or files just audited; (2) the change touches two files or fewer; (3) no new design — only surgical fixes to remediate findings. Beyond any of those, dispatch focused-engineer. Rule is project-local; revisit if it produces ownership confusion.
 
 ---
 
